@@ -297,7 +297,7 @@
 	{/if}
 
 	<footer class="grid footer">
-		<div>netdecker.app — netdeck responsibly</div>
+		<div>netdecker.app — netdeck responsibly — &copy; <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="credits-link">script wizards</a></div>
 		<div class="credits">
 			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
@@ -570,8 +570,14 @@
 		text-decoration: none;
 	}
 
-	.credits a:hover {
+	.credits a:hover,
+	.credits-link:hover {
 		color: var(--accent);
+	}
+
+	.credits-link {
+		color: var(--text-muted);
+		text-decoration: none;
 	}
 
 	@media (min-width: 1400px) {
