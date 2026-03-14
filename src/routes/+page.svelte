@@ -41,6 +41,7 @@
 
 	const SPINNER = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
 	let spinIdx = $state(0);
+	let msgTick = $state(0);
 
 	let msgInterval: ReturnType<typeof setInterval>;
 	let spinInterval: ReturnType<typeof setInterval>;
@@ -51,6 +52,7 @@
 		msgInterval = setInterval(() => {
 			msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
 			loadingMsg = LOADING_MESSAGES[msgIndex];
+			msgTick++;
 		}, 2000);
 		spinInterval = setInterval(() => {
 			spinIdx = (spinIdx + 1) % SPINNER.length;
@@ -274,14 +276,14 @@
 						{#if deck.optimizer.unavailableCards.length > 0}
 							<span class="price-warn">({deck.optimizer.unavailableCards.length} not on manapool)</span>
 						{/if}
-						<button class="deck-action" onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'copied!' : 'copy decklist'}</button>
-						<a class="deck-action" href="https://manapool.com/add-deck" target="_blank" rel="noopener">buy on manapool</a>
 					{:else if pricingDone}
 						<span class="price-na">pricing unavailable</span>
 					{:else}
-						{@const msgIdx = (Math.floor(spinIdx / 20) + deckIndex * 3) % LOADING_MESSAGES.length}
+						{@const msgIdx = (msgTick + deckIndex * 3) % LOADING_MESSAGES.length}
 						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {LOADING_MESSAGES[msgIdx]}</span>
 					{/if}
+					<button class="deck-action" onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'copied!' : 'copy decklist'}</button>
+					<a class="deck-action" href="https://manapool.com/add-deck" target="_blank" rel="noopener">buy on manapool</a>
 				</div>
 			</div>
 		</section>
@@ -511,6 +513,11 @@
 
 	.price-loading {
 		color: var(--accent);
+		flex: 1;
+	}
+
+	.price-na {
+		flex: 1;
 	}
 
 	.deck-action {
