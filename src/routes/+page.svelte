@@ -159,11 +159,14 @@
 		showBack = false;
 	}
 
-	function flipCard() {
-		if (!hoverCard) return;
-		if (hoverCard in NEO_BASICS) {
+	function handleClick(name: string, e: MouseEvent) {
+		if (hoverCard !== name) {
+			showCard(name, e);
+			return;
+		}
+		if (name in NEO_BASICS) {
 			basicAlt = !basicAlt;
-		} else if (hoverCard.includes('//')) {
+		} else if (name.includes('//')) {
 			showBack = !showBack;
 		}
 	}
@@ -244,7 +247,7 @@
 						{#each deck.decklist.mainboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={flipCard} onkeydown={(e) => e.key === 'Enter' && flipCard()}>{card.name}</span>
+								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, e as any)}>{card.name}</span>
 								{#if card.priceUsd}
 									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
 								{/if}
@@ -256,7 +259,7 @@
 						{#each deck.decklist.sideboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={flipCard} onkeydown={(e) => e.key === 'Enter' && flipCard()}>{card.name}</span>
+								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, e as any)}>{card.name}</span>
 								{#if card.priceUsd}
 									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
 								{/if}
