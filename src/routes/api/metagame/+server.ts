@@ -10,6 +10,15 @@ export const GET: RequestHandler = async () => {
 				controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 			}
 
+			// Send SSE comment every 15s to prevent idle connection timeouts
+			const heartbeat = setInterval(() => {
+				try {
+					controller.enqueue(encoder.encode(': heartbeat\n\n'));
+				} catch {
+					clearInterval(heartbeat);
+				}
+			}, 15_000);
+
 			try {
 				await getMetagameDataStreaming({
 					onDecks: (tournaments) => send('decks', tournaments),
@@ -22,6 +31,7 @@ export const GET: RequestHandler = async () => {
 				send('error', { message: 'Failed to load metagame data' });
 			}
 
+			clearInterval(heartbeat);
 			controller.close();
 		}
 	});

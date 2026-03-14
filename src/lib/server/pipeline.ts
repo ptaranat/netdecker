@@ -47,6 +47,7 @@ export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<v
 		if (activeBuild) {
 			pendingCallbacks.push(cb);
 			await activeBuild;
+			replayCompleted(cb, cached);
 		} else {
 			activeBuild = runOptimization(cached, [cb]);
 			try { await activeBuild; } finally { activeBuild = null; }
@@ -58,11 +59,24 @@ export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<v
 		console.log('[pipeline] build in progress, waiting...');
 		pendingCallbacks.push(cb);
 		await activeBuild;
+		replayCompleted(cb, getCached<TournamentWithDecks[]>(CACHE_KEY));
 		return;
 	}
 
 	activeBuild = runPipeline(cb);
 	try { await activeBuild; } finally { activeBuild = null; }
+}
+
+function replayCompleted(cb: PipelineCallbacks, cached: TournamentWithDecks[] | null) {
+	if (!cached) return;
+	safeSend(cb, (c) => c.onDecks(cached));
+	for (let ti = 0; ti < cached.length; ti++) {
+		for (let di = 0; di < cached[ti].decks.length; di++) {
+			const opt = cached[ti].decks[di].optimizer;
+			if (opt) safeSend(cb, (c) => c.onPrice(ti, di, opt));
+		}
+	}
+	safeSend(cb, (c) => c.onDone(cached));
 }
 
 async function runPipeline(cb: PipelineCallbacks): Promise<void> {
