@@ -327,7 +327,7 @@
 		background: var(--bg);
 		color: var(--text);
 		font-family: 'GeistMono-Regular', 'JetBrains Mono', 'Courier New', monospace;
-		font-size: 13px;
+		font-size: 15px;
 		line-height: 1.5;
 	}
 
@@ -354,7 +354,7 @@
 
 	.logo {
 		color: var(--accent);
-		font-size: 8px;
+		font-size: 10px;
 		line-height: 1.0;
 		overflow: hidden;
 	}
@@ -540,7 +540,7 @@
 	.flip-hint {
 		text-align: center;
 		color: var(--text-muted);
-		font-size: 11px;
+		font-size: 12px;
 		padding: 2px 0;
 		background: var(--bg);
 	}
@@ -596,7 +596,7 @@
 
 	@media (max-width: 600px) {
 		.logo {
-			font-size: 5px;
+			font-size: 7px;
 		}
 
 		.deck-grid {
