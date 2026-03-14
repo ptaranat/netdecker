@@ -10,47 +10,84 @@ interface OptimizerCartItem {
 	condition_ids: string[];
 }
 
+interface UnavailableItem {
+	item: { name: string; index: number };
+	total_available: number;
+}
+
 export async function optimizeDecklist(
 	cards: Card[],
 	model: 'balanced' | 'lowest_price' | 'fewest_packages' = 'balanced'
 ): Promise<OptimizerResult | null> {
-	const cart: OptimizerCartItem[] = cards.map((card) => ({
-		type: 'mtg_single',
-		name: card.name,
-		quantity_requested: card.quantity,
-		language_ids: ['EN'],
-		finish_ids: ['NF'],
-		condition_ids: ['NM', 'LP']
-	}));
+	let currentCards = cards;
+	const unavailableCards: string[] = [];
 
-	try {
-		const res = await manapoolFetch('/buyer/optimizer', {
-			method: 'POST',
-			body: JSON.stringify({
-				cart,
-				model,
-				destination_country: 'US'
-			})
-		});
+	// Retry up to 3 times, removing unavailable cards each time
+	for (let attempt = 0; attempt < 3; attempt++) {
+		if (currentCards.length === 0) return null;
 
-		if (!res.ok) {
-			console.error(`Manapool optimizer error: ${res.status} ${await res.text()}`);
+		const cart: OptimizerCartItem[] = currentCards.map((card) => ({
+			type: 'mtg_single',
+			name: card.name,
+			quantity_requested: card.quantity,
+			language_ids: ['EN'],
+			finish_ids: ['NF'],
+			condition_ids: ['NM', 'LP', 'MP', 'HP']
+		}));
+
+		try {
+			const res = await manapoolFetch('/buyer/optimizer', {
+				method: 'POST',
+				body: JSON.stringify({ cart, model, destination_country: 'US' })
+			});
+
+			let parsed: Record<string, unknown>;
+
+			try {
+				const buf = await res.arrayBuffer();
+				const text = new TextDecoder().decode(buf);
+				// API sometimes returns NDJSON — take the first line
+				const firstLine = text.split('\n').find((l) => l.trim().startsWith('{'));
+				if (!firstLine) throw new Error('No JSON object in response');
+				parsed = JSON.parse(firstLine);
+			} catch (parseErr) {
+				console.error(`Manapool JSON parse failed (attempt ${attempt}):`, parseErr);
+				return null;
+			}
+
+			if (res.ok) {
+				const result = parseOptimizerResponse(parsed);
+				result.unavailableCards = unavailableCards;
+				return result;
+			}
+
+			if (res.status === 409) {
+				const error = parsed;
+				const details: UnavailableItem[] = (error.details as UnavailableItem[]) ?? [];
+				const badNames = new Set(details.map((d) => d.item.name));
+
+				if (badNames.size === 0) return null;
+
+				unavailableCards.push(...badNames);
+				currentCards = currentCards.filter((c) => !badNames.has(c.name));
+				continue;
+			}
+
+			console.error(`Manapool optimizer error: ${res.status}`);
+			return null;
+		} catch (err) {
+			console.error('Manapool optimizer failed:', err);
 			return null;
 		}
-
-		const data = await res.json();
-		return parseOptimizerResponse(data);
-	} catch (err) {
-		console.error('Manapool optimizer failed:', err);
-		return null;
 	}
+
+	return null;
 }
 
 function parseOptimizerResponse(data: Record<string, unknown>): OptimizerResult {
-	// The optimizer response structure varies — extract what we can
 	const sellers = (data.sellers as unknown[]) ?? [];
 	let totalPrice = 0;
-	let packageCount = sellers.length;
+	const packageCount = sellers.length;
 
 	for (const seller of sellers) {
 		const s = seller as Record<string, unknown>;
@@ -58,7 +95,6 @@ function parseOptimizerResponse(data: Record<string, unknown>): OptimizerResult 
 		totalPrice += (s.shipping as number) ?? 0;
 	}
 
-	// Fall back to top-level total if available
 	if (data.total !== undefined) {
 		totalPrice = data.total as number;
 	}
@@ -67,6 +103,7 @@ function parseOptimizerResponse(data: Record<string, unknown>): OptimizerResult 
 		totalPrice,
 		sellerCount: packageCount,
 		packageCount,
-		cartUrl: (data.cart_url as string) ?? null
+		cartUrl: (data.cart_url as string) ?? null,
+		unavailableCards: []
 	};
 }

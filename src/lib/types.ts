@@ -29,6 +29,7 @@ export interface OptimizerResult {
 	sellerCount: number;
 	packageCount: number;
 	cartUrl: string | null;
+	unavailableCards: string[];
 }
 
 export interface ArchetypeWithDeck extends Archetype {

@@ -1,8 +1,23 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { ArchetypeWithDeck } from '$lib/types';
 
 	let { data } = $props();
-	let archetypes = $derived(data.archetypes);
+	let archetypes = $state<ArchetypeWithDeck[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+
+	onMount(async () => {
+		try {
+			const res = await fetch('/api/metagame');
+			if (!res.ok) throw new Error('Failed to fetch');
+			archetypes = await res.json();
+		} catch {
+			error = 'Failed to load metagame data. Please try again later.';
+		} finally {
+			loading = false;
+		}
+	});
 
 	function trendSymbol(trend: number): string {
 		if (trend > 0) return `▲ +${trend.toFixed(2)}%`;
@@ -39,14 +54,14 @@
 		</p>
 	</header>
 
-	{#if data.error}
+	{#if error}
 		<div class="error">
-			<pre>ERROR: {data.error}</pre>
+			<pre>ERROR: {error}</pre>
 		</div>
 	{/if}
 
-	{#if archetypes.length === 0 && !data.error}
-		<pre class="loading">loading metagame data...</pre>
+	{#if loading}
+		<pre class="loading">fetching metagame data...</pre>
 	{/if}
 
 	<div class="archetypes">
@@ -82,6 +97,9 @@
 					{#if arch.optimizer}
 						<pre class="price-box">─── manapool optimizer (balanced) ───</pre>
 						<pre class="price-line">total: {formatPrice(arch.optimizer.totalPrice)}  ·  {arch.optimizer.sellerCount} sellers  ·  {arch.optimizer.packageCount} packages</pre>
+						{#if arch.optimizer.unavailableCards.length > 0}
+							<pre class="price-warn">  not on manapool: {arch.optimizer.unavailableCards.join(', ')}</pre>
+						{/if}
 						{#if arch.optimizer.cartUrl}
 							<pre class="buy-link"><a href={arch.optimizer.cartUrl} target="_blank" rel="noopener">[buy on manapool]</a></pre>
 						{/if}
@@ -215,6 +233,11 @@
 
 	.price-line {
 		color: #e8e4dc;
+		margin: 0;
+	}
+
+	.price-warn {
+		color: #996633;
 		margin: 0;
 	}
 
