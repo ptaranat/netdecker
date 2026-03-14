@@ -7,12 +7,19 @@ import { optimizeDecklist } from './manapool/optimizer';
 
 const CACHE_KEY = 'metagame-data';
 
-export async function getMetagameData(): Promise<ArchetypeWithDeck[]> {
+export type ProgressCallback = (pct: number, msg: string) => void;
+
+export async function getMetagameData(
+	onProgress?: ProgressCallback
+): Promise<ArchetypeWithDeck[]> {
 	const cached = getCached<ArchetypeWithDeck[]>(CACHE_KEY);
-	if (cached) return cached;
+	if (cached) {
+		onProgress?.(100, 'cached');
+		return cached;
+	}
 
 	try {
-		const data = await buildMetagameData();
+		const data = await buildMetagameData(onProgress);
 		setCache(CACHE_KEY, data);
 		return data;
 	} catch (err) {
@@ -24,9 +31,12 @@ export async function getMetagameData(): Promise<ArchetypeWithDeck[]> {
 }
 
 async function processArchetype(
-	archetype: Awaited<ReturnType<typeof fetchTopArchetypes>>[number]
+	archetype: Awaited<ReturnType<typeof fetchTopArchetypes>>[number],
+	onProgress?: ProgressCallback,
+	basePct?: number
 ): Promise<ArchetypeWithDeck | null> {
 	try {
+		onProgress?.(basePct ?? 0, `fetching ${archetype.name}`);
 		const deckUrl = await fetchBestDeckUrl(archetype.url);
 		if (!deckUrl) {
 			console.warn(`No deck found for ${archetype.name}`);
@@ -44,10 +54,21 @@ async function processArchetype(
 	}
 }
 
-async function buildMetagameData(): Promise<ArchetypeWithDeck[]> {
+async function buildMetagameData(
+	onProgress?: ProgressCallback
+): Promise<ArchetypeWithDeck[]> {
+	onProgress?.(5, 'fetching metagame');
 	const archetypes = await fetchTopArchetypes(5);
+	onProgress?.(15, 'processing archetypes');
 
-	const results = await Promise.all(archetypes.map(processArchetype));
+	// Process sequentially so we can report per-archetype progress
+	const results: ArchetypeWithDeck[] = [];
+	for (let i = 0; i < archetypes.length; i++) {
+		const pct = 15 + Math.round((i / archetypes.length) * 80);
+		const result = await processArchetype(archetypes[i], onProgress, pct);
+		if (result) results.push(result);
+	}
 
-	return results.filter((r): r is ArchetypeWithDeck => r !== null);
+	onProgress?.(100, 'done');
+	return results;
 }

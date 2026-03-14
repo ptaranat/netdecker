@@ -6,17 +6,53 @@
 	let archetypes = $state<ArchetypeWithDeck[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let loadingMsg = $state('');
+	let progress = $state(0);
 
-	onMount(async () => {
-		try {
-			const res = await fetch('/api/metagame');
-			if (!res.ok) throw new Error('Failed to fetch');
-			archetypes = await res.json();
-		} catch {
-			error = 'Failed to load metagame data. Please try again later.';
-		} finally {
+	const LOADING_MESSAGES = [
+		'bolting the bird...',
+		'paying the one...',
+		'in response...',
+		'searching library...',
+		'cutting your deck...',
+		'destroying target permanent...',
+		'exiling all graveyards...',
+		'passing priority...',
+		'drawing for turn...',
+		'declaring blockers...',
+		'going to combat...'
+	];
+
+	let msgInterval: ReturnType<typeof setInterval>;
+
+	onMount(() => {
+		let msgIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
+		loadingMsg = LOADING_MESSAGES[msgIndex];
+		msgInterval = setInterval(() => {
+			msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
+			loadingMsg = LOADING_MESSAGES[msgIndex];
+		}, 2000);
+
+		const es = new EventSource('/api/metagame');
+
+		es.addEventListener('progress', (e) => {
+			const { pct } = JSON.parse(e.data);
+			progress = pct;
+		});
+
+		es.addEventListener('done', (e) => {
+			archetypes = JSON.parse(e.data);
 			loading = false;
-		}
+			clearInterval(msgInterval);
+			es.close();
+		});
+
+		es.addEventListener('error', () => {
+			error = 'Failed to load metagame data. Please try again later.';
+			loading = false;
+			clearInterval(msgInterval);
+			es.close();
+		});
 	});
 
 	function trendSymbol(trend: number): string {
@@ -27,6 +63,10 @@
 
 	function formatPrice(price: number): string {
 		return `$${price.toFixed(2)}`;
+	}
+
+	function truncate(str: string, max = 40): string {
+		return str.length > max ? str.slice(0, max - 1) + '…' : str;
 	}
 
 	const ASCII_LOGO = [
@@ -61,7 +101,7 @@
 	{/if}
 
 	{#if loading}
-		<pre class="loading">fetching metagame data...</pre>
+		<pre class="loading">&gt; {loadingMsg}  [{progress}%]</pre>
 	{/if}
 
 	<div class="archetypes">
@@ -74,8 +114,8 @@
 				</div>
 
 				<div class="deck-meta">
-					<pre>  player: {arch.decklist.player}  |  {arch.decklist.placement}  |  {arch.decklist.event}
-  platform: {arch.decklist.platform}  |  date: {arch.decklist.date}</pre>
+					<pre>  {arch.decklist.placement} by {arch.decklist.player}  ·  {arch.decklist.platform}  ·  {arch.decklist.date}</pre>
+					<pre>  {truncate(arch.decklist.event, 60)}</pre>
 				</div>
 
 				<div class="deck-content">
