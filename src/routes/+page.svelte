@@ -63,7 +63,6 @@
 		es.addEventListener('decks', (e) => {
 			tournaments = JSON.parse(e.data);
 			loading = false;
-			clearInterval(msgInterval);
 		});
 
 		es.addEventListener('price', (e) => {
@@ -84,6 +83,7 @@
 		es.addEventListener('done', () => {
 			pricingDone = true;
 			clearInterval(spinInterval);
+			clearInterval(msgInterval);
 			es.close();
 		});
 
@@ -122,8 +122,7 @@
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">top standard decks</div>
-			<div class="meta">pls netdeck responsibly</div>
+			<div class="tagline">buy top standard decks on manapool</div>
 		</header>
 	</div>
 
@@ -180,7 +179,7 @@
 					{:else if pricingDone}
 						<span class="price-na">pricing unavailable</span>
 					{:else}
-						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> optimizing price</span>
+						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {loadingMsg}</span>
 					{/if}
 				</div>
 			</div>
@@ -188,7 +187,7 @@
 	{/each}
 
 	<footer class="grid footer">
-		<div>netdecker.app</div>
+		<div>netdecker.app — netdeck responsibly</div>
 		<div class="credits">
 			data <a href="https://mtgdecks.net/Standard" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
@@ -237,6 +236,7 @@
 	header {
 		text-align: center;
 		padding-top: 2lh;
+		padding-bottom: 0;
 	}
 
 	.logo {
@@ -249,10 +249,6 @@
 	.tagline {
 		color: var(--accent);
 		margin-top: 1lh;
-	}
-
-	.meta {
-		color: var(--text-muted);
 	}
 
 	.error {
@@ -269,7 +265,7 @@
 	}
 
 	.archetype-card {
-		margin: 1.5lh 2ch;
+		margin: 1lh 2ch;
 		box-shadow:
 			inset 2px 0 0 0 var(--border),
 			inset -2px 0 0 0 var(--border),
