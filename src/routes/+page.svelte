@@ -100,6 +100,23 @@
 		return `$${price.toFixed(2)}`;
 	}
 
+	function decklistToText(deck: FlatDeck): string {
+		const lines = [
+			...deck.decklist.mainboard.map((c) => `${c.quantity} ${c.name}`),
+			'',
+			...deck.decklist.sideboard.map((c) => `${c.quantity} ${c.name}`)
+		];
+		return lines.join('\n');
+	}
+
+	let copiedIdx = $state<number | null>(null);
+
+	async function copyDecklist(deck: FlatDeck, idx: number) {
+		await navigator.clipboard.writeText(decklistToText(deck));
+		copiedIdx = idx;
+		setTimeout(() => { copiedIdx = null; }, 300);
+	}
+
 	function truncate(str: string, max = 50): string {
 		return str.length > max ? str.slice(0, max - 1) + '…' : str;
 	}
@@ -122,7 +139,7 @@
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">buy top standard decks on manapool</div>
+			<div class="tagline">top standard decks</div>
 		</header>
 	</div>
 
@@ -173,10 +190,11 @@
 				<div class="pricing">
 					{#if deck.optimizer}
 						<span class="price-amount">{formatPrice(deck.optimizer.totalPrice)}</span>
-						<span class="price-sellers">{deck.optimizer.sellerCount} sellers</span>
 						{#if deck.optimizer.unavailableCards.length > 0}
-							<span class="price-warn">({deck.optimizer.unavailableCards.length} cards not on manapool)</span>
+							<span class="price-warn">({deck.optimizer.unavailableCards.length} not on manapool)</span>
 						{/if}
+						<button class="deck-action" onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'copied!' : 'copy decklist'}</button>
+						<a class="deck-action" href="https://manapool.com/add-deck" target="_blank" rel="noopener">buy on manapool</a>
 					{:else if pricingDone}
 						<span class="price-na">pricing unavailable</span>
 					{:else}
@@ -400,6 +418,23 @@
 
 	.price-loading {
 		color: var(--accent);
+	}
+
+	.deck-action {
+		background: none;
+		color: var(--accent);
+		font-family: inherit;
+		font-size: inherit;
+		cursor: pointer;
+		text-decoration: none;
+	}
+
+	.deck-action:first-of-type {
+		margin-left: auto;
+	}
+
+	.deck-action:hover {
+		color: var(--accent-hover);
 	}
 
 	.price-na {
