@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { getMetagameData } from '$lib/server/pipeline';
+import { getMetagameDataStreaming } from '$lib/server/pipeline';
 
 export const GET: RequestHandler = async () => {
 	const stream = new ReadableStream({
@@ -11,10 +11,11 @@ export const GET: RequestHandler = async () => {
 			}
 
 			try {
-				const data = await getMetagameData((pct, msg) => {
-					send('progress', { pct, msg });
+				await getMetagameDataStreaming({
+					onDecks: (archetypes) => send('decks', archetypes),
+					onPrice: (index, optimizer) => send('price', { index, optimizer }),
+					onDone: () => send('done', {})
 				});
-				send('done', data);
 			} catch (err) {
 				console.error('Metagame SSE error:', err);
 				send('error', { message: 'Failed to load metagame data' });

@@ -5,9 +5,9 @@
 	let { data } = $props();
 	let archetypes = $state<ArchetypeWithDeck[]>([]);
 	let loading = $state(true);
+	let pricingDone = $state(false);
 	let error = $state<string | null>(null);
 	let loadingMsg = $state('');
-	let progress = $state(0);
 
 	const LOADING_MESSAGES = [
 		'bolting the bird...',
@@ -35,15 +35,19 @@
 
 		const es = new EventSource('/api/metagame');
 
-		es.addEventListener('progress', (e) => {
-			const { pct } = JSON.parse(e.data);
-			progress = pct;
-		});
-
-		es.addEventListener('done', (e) => {
+		es.addEventListener('decks', (e) => {
 			archetypes = JSON.parse(e.data);
 			loading = false;
 			clearInterval(msgInterval);
+		});
+
+		es.addEventListener('price', (e) => {
+			const { index, optimizer } = JSON.parse(e.data);
+			archetypes[index] = { ...archetypes[index], optimizer };
+		});
+
+		es.addEventListener('done', () => {
+			pricingDone = true;
 			es.close();
 		});
 
@@ -101,7 +105,7 @@
 	{/if}
 
 	{#if loading}
-		<pre class="loading">&gt; {loadingMsg}  [{progress}%]</pre>
+		<pre class="loading">&gt; {loadingMsg}</pre>
 	{/if}
 
 	<div class="archetypes">
@@ -136,15 +140,17 @@
 				<div class="pricing">
 					{#if arch.optimizer}
 						<pre class="price-box">─── manapool optimizer (balanced) ───</pre>
-						<pre class="price-line">total: {formatPrice(arch.optimizer.totalPrice)}  ·  {arch.optimizer.sellerCount} sellers  ·  {arch.optimizer.packageCount} packages</pre>
+						<pre class="price-line">total: {formatPrice(arch.optimizer.totalPrice)}  ·  {arch.optimizer.sellerCount} sellers</pre>
 						{#if arch.optimizer.unavailableCards.length > 0}
 							<pre class="price-warn">  not on manapool: {arch.optimizer.unavailableCards.join(', ')}</pre>
 						{/if}
 						{#if arch.optimizer.cartUrl}
 							<pre class="buy-link"><a href={arch.optimizer.cartUrl} target="_blank" rel="noopener">[buy on manapool]</a></pre>
 						{/if}
-					{:else}
+					{:else if pricingDone}
 						<pre class="price-unavailable">pricing unavailable</pre>
+					{:else}
+						<pre class="price-loading">optimizing price...</pre>
 					{/if}
 				</div>
 			</section>
@@ -279,6 +285,12 @@
 	.price-warn {
 		color: #996633;
 		margin: 0;
+	}
+
+	.price-loading {
+		color: #e8a349;
+		margin: 0;
+		opacity: 0.6;
 	}
 
 	.price-unavailable {
