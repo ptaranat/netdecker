@@ -136,7 +136,7 @@
 		</div>
 	{/if}
 
-	{#each flatDecks as deck}
+	{#each flatDecks as deck, deckIndex}
 		<section class="archetype-card">
 			<div class="card-title">
 				<span class="deck-placement">{deck.decklist.placement}</span>
@@ -179,7 +179,8 @@
 					{:else if pricingDone}
 						<span class="price-na">pricing unavailable</span>
 					{:else}
-						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {loadingMsg}</span>
+						{@const msgIdx = (Math.floor(spinIdx / 20) + deckIndex * 3) % LOADING_MESSAGES.length}
+						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {LOADING_MESSAGES[msgIdx]}</span>
 					{/if}
 				</div>
 			</div>
@@ -385,7 +386,7 @@
 	}
 
 	.price-loading {
-		color: var(--text-muted);
+		color: var(--accent);
 	}
 
 	.price-na {

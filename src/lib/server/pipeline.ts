@@ -25,9 +25,25 @@ export interface PipelineCallbacks {
 export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<void> {
 	const cached = getCached<TournamentWithDecks[]>(CACHE_KEY);
 	if (cached) {
-		console.log('[pipeline] cache hit');
+		const allPriced = cached.every((t) => t.decks.every((d) => d.optimizer !== null));
+		if (allPriced) {
+			console.log('[pipeline] cache hit (complete)');
+			cb.onDecks(cached);
+			cb.onDone(cached);
+			return;
+		}
+		// Cache has decklists but no prices — send decks, then optimize
+		console.log('[pipeline] cache hit (no prices), optimizing...');
 		cb.onDecks(cached);
-		cb.onDone(cached);
+
+		if (activeBuild) {
+			// Optimization already running from another request — piggyback
+			pendingCallbacks.push(cb);
+			await activeBuild;
+		} else {
+			activeBuild = optimizeCachedDecks(cached, cb);
+			try { await activeBuild; } finally { activeBuild = null; }
+		}
 		return;
 	}
 
@@ -52,8 +68,9 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 	const total = timer();
 
 	function broadcast(fn: (cb: PipelineCallbacks) => void) {
-		for (const c of allCallbacks) fn(c);
-		for (const c of pendingCallbacks) fn(c);
+		for (const c of [...allCallbacks, ...pendingCallbacks]) {
+			try { fn(c); } catch { /* stream may be closed */ }
+		}
 	}
 
 	try {
@@ -90,6 +107,9 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 				decks
 			});
 		}
+
+		// Cache decklists immediately (without prices) so reloads don't re-scrape
+		setCache(CACHE_KEY, results);
 
 		// Send decklists immediately
 		broadcast((c) => c.onDecks(results));
@@ -138,4 +158,41 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 			throw err;
 		}
 	}
+}
+
+async function optimizeCachedDecks(
+	results: TournamentWithDecks[],
+	cb: PipelineCallbacks
+): Promise<void> {
+	const pricePromises: Promise<void>[] = [];
+
+	for (let ti = 0; ti < results.length; ti++) {
+		for (let di = 0; di < results[ti].decks.length; di++) {
+			const deck = results[ti].decks[di];
+			if (deck.optimizer) continue;
+
+			const name = `${deck.decklist.player} @ ${results[ti].name}`;
+			pricePromises.push(
+				(async () => {
+					const pt = timer();
+					try {
+						const allCards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
+						const resolvedCards = await resolveCardNames(allCards);
+						const optimizer = await optimizeDecklist(resolvedCards);
+						console.log(`[optimizer] ${name}: ${pt()}`);
+						if (optimizer) {
+							results[ti].decks[di].optimizer = optimizer;
+							try { cb.onPrice(ti, di, optimizer); } catch { /* stream closed */ }
+						}
+					} catch (err) {
+						console.error(`[optimizer] ${name} failed:`, err);
+					}
+				})()
+			);
+		}
+	}
+
+	await Promise.all(pricePromises);
+	setCache(CACHE_KEY, results);
+	try { cb.onDone(results); } catch { /* stream closed */ }
 }
