@@ -7,27 +7,30 @@ const SCRYFALL_HEADERS = {
 	Accept: 'application/json'
 };
 
-// Persistent name cache — survives across archetype calls
-const nameCache = new Map<string, string>();
+interface CardInfo {
+	name: string;
+	priceUsd: number | null;
+}
 
-/**
- * Resolves card names to their full Scryfall names.
- * Handles DFC/Adventure (front face → "Front // Back") and
- * OM1 renames (fuzzy match fallback for not_found cards).
- * Results are cached in-memory so repeated cards skip Scryfall.
- */
+// Persistent cache — survives across calls
+const cardCache = new Map<string, CardInfo>();
+
 export async function resolveCardNames(cards: Card[]): Promise<Card[]> {
 	const uniqueNames = [...new Set(cards.map((c) => c.name))];
-	const uncached = uniqueNames.filter((n) => !nameCache.has(n));
+	const uncached = uniqueNames.filter((n) => !cardCache.has(n));
 
 	if (uncached.length > 0) {
 		await resolveFromScryfall(uncached);
 	}
 
-	return cards.map((c) => ({
-		...c,
-		name: nameCache.get(c.name) ?? c.name
-	}));
+	return cards.map((c) => {
+		const info = cardCache.get(c.name);
+		return {
+			...c,
+			name: info?.name ?? c.name,
+			priceUsd: info?.priceUsd ?? null
+		};
+	});
 }
 
 async function resolveFromScryfall(names: string[]): Promise<void> {
@@ -56,7 +59,8 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 					(n) => card.name.toLowerCase().startsWith(n.toLowerCase())
 				);
 				if (inputName) {
-					nameCache.set(inputName, card.name);
+					const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
+					cardCache.set(inputName, { name: card.name, priceUsd: price });
 				}
 			}
 
@@ -68,7 +72,6 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 		}
 	}
 
-	// Fuzzy search fallback for not_found cards (OM1 renames etc.)
 	for (const name of notFound) {
 		try {
 			const res = await fetch(
@@ -77,20 +80,19 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 			);
 			if (res.ok) {
 				const card = await res.json();
-				nameCache.set(name, card.name ?? name);
+				const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
+				cardCache.set(name, { name: card.name ?? name, priceUsd: price });
 			} else {
-				nameCache.set(name, name); // Cache miss too, so we don't retry
+				cardCache.set(name, { name, priceUsd: null });
 			}
 			await new Promise((r) => setTimeout(r, 100));
 		} catch {
-			nameCache.set(name, name);
+			cardCache.set(name, { name, priceUsd: null });
 		}
 	}
 
-	const resolutions = Object.fromEntries(
-		[...nameCache].filter(([k, v]) => k !== v)
-	);
-	if (Object.keys(resolutions).length > 0) {
-		console.log('Card name resolutions:', resolutions);
+	const resolutions = [...cardCache].filter(([k, v]) => k !== v.name);
+	if (resolutions.length > 0) {
+		console.log('Card name resolutions:', Object.fromEntries(resolutions.map(([k, v]) => [k, v.name])));
 	}
 }

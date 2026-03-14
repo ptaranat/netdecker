@@ -63,6 +63,14 @@
 		es.addEventListener('decks', (e) => {
 			tournaments = JSON.parse(e.data);
 			loading = false;
+			// Preload card images for instant hover
+			for (const t of tournaments) {
+				for (const d of t.decks) {
+					for (const c of [...d.decklist.mainboard, ...d.decklist.sideboard]) {
+						preloadImage(c.name);
+					}
+				}
+			}
 		});
 
 		es.addEventListener('price', (e) => {
@@ -115,6 +123,35 @@
 		await navigator.clipboard.writeText(decklistToText(deck));
 		copiedIdx = idx;
 		setTimeout(() => { copiedIdx = null; }, 300);
+	}
+
+	let hoverCard = $state<string | null>(null);
+	let hoverPos = $state({ x: 0, y: 0 });
+
+	const imageCache = new Set<string>();
+
+	function preloadImage(name: string) {
+		if (imageCache.has(name)) return;
+		const img = new Image();
+		img.src = scryfallImageUrl(name);
+		imageCache.add(name);
+	}
+
+	function showCard(name: string, e: MouseEvent) {
+		hoverCard = name;
+		hoverPos = { x: e.clientX, y: e.clientY };
+	}
+
+	function moveCard(e: MouseEvent) {
+		hoverPos = { x: e.clientX, y: e.clientY };
+	}
+
+	function hideCard() {
+		hoverCard = null;
+	}
+
+	function scryfallImageUrl(name: string): string {
+		return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal`;
 	}
 
 	function truncate(str: string, max = 50): string {
@@ -172,7 +209,10 @@
 						{#each deck.decklist.mainboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name">{card.name}</span>
+								<span class="card-name" role="img" aria-label={card.name} onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard}>{card.name}</span>
+								{#if card.priceUsd}
+									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -181,7 +221,10 @@
 						{#each deck.decklist.sideboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name">{card.name}</span>
+								<span class="card-name" role="img" aria-label={card.name} onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard}>{card.name}</span>
+								{#if card.priceUsd}
+									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -206,6 +249,12 @@
 		</section>
 	{/each}
 	</div>
+
+	{#if hoverCard}
+		<div class="card-preview" style="left: {hoverPos.x + 16}px; top: {hoverPos.y - 100}px;">
+			<img src={scryfallImageUrl(hoverCard)} alt={hoverCard} width="244" height="340" />
+		</div>
+	{/if}
 
 	<footer class="grid footer">
 		<div>netdecker.app — netdeck responsibly</div>
@@ -391,6 +440,12 @@
 		white-space: nowrap;
 	}
 
+	.card-price {
+		margin-left: auto;
+		color: var(--text-dim);
+		flex-shrink: 0;
+	}
+
 	.card-row:hover .card-qty {
 		color: var(--text);
 	}
@@ -429,6 +484,23 @@
 
 	.deck-action:hover {
 		color: var(--accent-hover);
+	}
+
+	.card-preview {
+		position: fixed;
+		z-index: 100;
+		pointer-events: none;
+		border-radius: 10px;
+		overflow: hidden;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+	}
+
+	.card-preview img {
+		display: block;
+	}
+
+	.card-name {
+		cursor: pointer;
 	}
 
 	.price-na {

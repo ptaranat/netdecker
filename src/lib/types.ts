@@ -1,6 +1,7 @@
 export interface Card {
 	name: string;
 	quantity: number;
+	priceUsd: number | null;
 }
 
 export interface Decklist {

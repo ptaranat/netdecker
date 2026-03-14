@@ -49,7 +49,7 @@ export function parseDecklist(html: string, deckUrl: string): Decklist {
 			const quantityMatch = cellText.match(/^(\d+)/);
 			const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
 
-			target.push({ name: cardName, quantity });
+			target.push({ name: cardName, quantity, priceUsd: null });
 		});
 	}
 
