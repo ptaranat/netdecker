@@ -1,42 +1,31 @@
-# sv
+# netdecker
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+top standard decks from major tournaments, priced on manapool. pls netdeck responsibly.
 
-## Creating a project
+scrapes the latest regional championships and major events from mtgdecks.net, grabs the 1st and 2nd place decklists, resolves card names via scryfall, and optimizes pricing through the manapool api.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## stack
 
-```sh
-# create a new project
-npx sv create my-app
+sveltekit, bun, cheerio, sse streaming. deployed on railway.
+
+## run
+
+```
+cp .env.example .env  # add your manapool credentials
+bun install
+bun dev
 ```
 
-To recreate this project with the same configuration:
+## how it works
 
-```sh
-# recreate this project
-npx sv@0.12.7 create --template minimal --types ts --no-install .
-```
+1. finds 3 most recent major paper tournaments (big star events on mtgdecks)
+2. pulls 1st and 2nd place decklists from each
+3. resolves dfc/adventure names and om1 renames via scryfall
+4. streams decklists to the client immediately
+5. optimizes prices via manapool's buyer/optimizer api in parallel
+6. hover any card to see the image, click to flip dfcs
+7. basic lands show kamigawa neon dynasty full art (japanese)
 
-## Developing
+## credits
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+data from [mtgdecks.net](https://mtgdecks.net), prices from [manapool](https://manapool.com), card data from [scryfall](https://scryfall.com)

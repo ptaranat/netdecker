@@ -299,7 +299,7 @@
 	<footer class="grid footer">
 		<div>netdecker.app — netdeck responsibly</div>
 		<div class="credits">
-			data <a href="https://mtgdecks.net/Standard" target="_blank" rel="noopener">mtgdecks</a>
+			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
 			 / cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
 		</div>
