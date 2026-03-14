@@ -211,7 +211,7 @@
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">top standard decks</div>
+			<div class="tagline">netdecker.app — top standard decks</div>
 		</header>
 	</div>
 
@@ -295,7 +295,7 @@
 	{/if}
 
 	<footer class="grid footer">
-		<div>netdecker.app — netdeck responsibly — &copy; <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="credits-link">script wizards</a></div>
+		<div>netdeck responsibly — &copy; <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="credits-link">script wizards</a></div>
 		<div class="credits">
 			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
