@@ -69,10 +69,10 @@ export function parseDecklist(html: string, deckUrl: string): Decklist {
 		}
 	});
 
-	// Placement: strong tag matching "Top8", "1st", etc.
+	// Placement: strong tag matching "Top8", "1st", or "W/L" record
 	const placementEl = metaSection.filter((_, el) => {
 		const text = $(el).text().trim();
-		return /^(Top\d+|1st|2nd|3rd|\d+th)/.test(text);
+		return /^(Top\d+|1st|2nd|3rd|\d+th|W\/L)/.test(text);
 	});
 	if (placementEl.length > 0) {
 		placement = placementEl.first().text().trim();

@@ -4,7 +4,9 @@ import { fetchPage } from './fetch';
 const BASE_URL = 'https://mtgdecks.net';
 
 export async function fetchBestDeckUrl(archetypeUrl: string): Promise<string | null> {
-	const html = await fetchPage(archetypeUrl);
+	// Sort by event relevance — biggest tournaments first
+	const url = `${archetypeUrl}/sort:Event.relevance/direction:desc`;
+	const html = await fetchPage(url);
 	return parseBestDeckUrl(html);
 }
 
@@ -12,12 +14,13 @@ export function parseBestDeckUrl(html: string): string | null {
 	const $ = cheerio.load(html);
 	const rows = $('table tbody tr');
 
-	// First pass: look for a paper event deck (skip MTGO and MTGA)
+	// First pass: skip W/L (no notable finish) and low-quality Japanese store events
 	for (const row of rows) {
 		const $row = $(row);
-		const platformImg = $row.find('img[alt*="MTGO"], img[alt*="MTGA"], img[alt*="Magic Online"], img[alt*="Magic Arena"]');
+		const rowText = $row.text();
 
-		if (platformImg.length > 0) continue;
+		if (/W\/L/.test(rowText) && !/Top\d+|1st|2nd|3rd|\d+th/.test(rowText)) continue;
+		if (/HARERUYA|Kichijoji|Japan\)/i.test(rowText)) continue;
 
 		const deckLink = $row.find('td:nth-child(2) a[href*="decklist"]');
 		if (deckLink.length > 0) {
@@ -26,11 +29,14 @@ export function parseBestDeckUrl(html: string): string | null {
 		}
 	}
 
-	// Fallback: take the first deck regardless of platform
-	const firstDeckLink = rows.first().find('td:nth-child(2) a[href*="decklist"]');
-	if (firstDeckLink.length > 0) {
-		const href = firstDeckLink.attr('href') ?? '';
-		return href.startsWith('http') ? href : `${BASE_URL}${href}`;
+	// Fallback: take the first deck regardless
+	for (const row of rows) {
+		const $row = $(row);
+		const deckLink = $row.find('td:nth-child(2) a[href*="decklist"]');
+		if (deckLink.length > 0) {
+			const href = deckLink.attr('href') ?? '';
+			return href.startsWith('http') ? href : `${BASE_URL}${href}`;
+		}
 	}
 
 	return null;

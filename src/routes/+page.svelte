@@ -100,8 +100,8 @@
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">standard metagame tracker</div>
-			<div class="meta">prices optimized by manapool  /  data from mtgdecks.net  /  major events, last 30 days</div>
+			<div class="tagline">top standard decks</div>
+			<div class="meta">pls netdeck responsibly</div>
 		</header>
 	</div>
 
@@ -120,12 +120,12 @@
 			<div class="card-title">
 				<span class="arch-rank">#{i + 1}</span>
 				<span class="arch-name">{arch.name}</span>
-				<span class="arch-meta">{arch.metaShare.toFixed(2)}%</span>
+				<span class="arch-meta">{arch.deckCount} decks  {arch.metaShare.toFixed(1)}%</span>
 				<span class="arch-trend" class:trend-up={arch.trend > 0} class:trend-down={arch.trend < 0}>{trendSymbol(arch.trend)}</span>
 			</div>
 			<div class="card-body">
 				<div class="arch-event">
-					{arch.decklist.placement} by {arch.decklist.player} — {truncate(arch.decklist.event, 45)}, {arch.decklist.date}
+					<a href={arch.decklist.url} target="_blank" rel="noopener">{arch.decklist.placement} by {arch.decklist.player}</a> — {truncate(arch.decklist.event, 45)}, {arch.decklist.date}
 				</div>
 
 				<div class="deck-grid">
@@ -168,7 +168,12 @@
 		</section>
 	{/each}
 	<footer class="grid footer">
-		netdecker.app
+		<div>netdecker.app</div>
+		<div class="credits">
+			data <a href="https://mtgdecks.net/Standard" target="_blank" rel="noopener">mtgdecks</a>
+			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
+			 / cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
+		</div>
 	</footer>
 </div>
 
@@ -299,6 +304,15 @@
 		margin-bottom: 0.5lh;
 	}
 
+	.arch-event a {
+		color: var(--text);
+		text-decoration: none;
+	}
+
+	.arch-event a:hover {
+		color: var(--accent);
+	}
+
 	.deck-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -387,6 +401,19 @@
 		color: var(--text-dim);
 		text-align: center;
 		padding-bottom: 2lh;
+	}
+
+	.credits {
+		margin-top: 0.5lh;
+	}
+
+	.credits a {
+		color: var(--text-muted);
+		text-decoration: none;
+	}
+
+	.credits a:hover {
+		color: var(--accent);
 	}
 
 	@media (max-width: 600px) {
