@@ -92,6 +92,12 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 				t = timer();
 				try {
 					const decklist = await fetchDecklist(url);
+					// Resolve names + prices before sending to client
+					const mbCount = decklist.mainboard.length;
+					const allCards = [...decklist.mainboard, ...decklist.sideboard];
+					const resolved = await resolveCardNames(allCards);
+					decklist.mainboard = resolved.slice(0, mbCount);
+					decklist.sideboard = resolved.slice(mbCount);
 					console.log(`[${tournament.name}] ${decklist.placement} ${decklist.player}: ${t()}`);
 					decks.push({ decklist, optimizer: null });
 				} catch (err) {
@@ -127,8 +133,7 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 						const pt = timer();
 						try {
 							const allCards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
-							const resolvedCards = await resolveCardNames(allCards);
-							const optimizer = await optimizeDecklist(resolvedCards);
+							const optimizer = await optimizeDecklist(allCards);
 							console.log(`[optimizer] ${name}: ${pt()}`);
 							if (optimizer) {
 								results[ti].decks[di].optimizer = optimizer;
@@ -177,8 +182,7 @@ async function optimizeCachedDecks(
 					const pt = timer();
 					try {
 						const allCards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
-						const resolvedCards = await resolveCardNames(allCards);
-						const optimizer = await optimizeDecklist(resolvedCards);
+						const optimizer = await optimizeDecklist(allCards);
 						console.log(`[optimizer] ${name}: ${pt()}`);
 						if (optimizer) {
 							results[ti].decks[di].optimizer = optimizer;
