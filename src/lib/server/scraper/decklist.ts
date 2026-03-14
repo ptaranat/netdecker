@@ -56,9 +56,21 @@ export function parseDecklist(html: string, deckUrl: string): Decklist {
 	// Parse metadata
 	let player = '';
 	let placement = '';
+	let archetype = '';
 	let event = '';
 	let platform = 'Paper';
 	let date = '';
+
+	// Archetype from breadcrumb (e.g. "Izzet Lessons" link in breadcrumb)
+	const breadcrumbLinks = $('a[href*="/Standard/"]');
+	breadcrumbLinks.each((_, el) => {
+		const href = $(el).attr('href') ?? '';
+		const text = $(el).text().trim();
+		// Archetype links don't contain "decklist", "tournament", "page:", etc.
+		if (text && !href.includes('decklist') && !href.includes('tournament') && !href.includes('page:') && href !== '/Standard/' && href !== '/Standard') {
+			archetype = text;
+		}
+	});
 
 	const metaSection = $('strong');
 
@@ -76,6 +88,8 @@ export function parseDecklist(html: string, deckUrl: string): Decklist {
 	});
 	if (placementEl.length > 0) {
 		placement = placementEl.first().text().trim();
+		// Add space before parenthesis: "1st(10 - 1)" → "1st (10 - 1)"
+		placement = placement.replace(/(\w)\(/, '$1 (');
 	}
 
 	// Event name: link pointing to a tournament page
@@ -101,6 +115,7 @@ export function parseDecklist(html: string, deckUrl: string): Decklist {
 		sideboard,
 		player,
 		placement,
+		archetype,
 		event,
 		platform,
 		date,

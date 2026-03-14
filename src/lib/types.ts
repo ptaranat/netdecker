@@ -1,13 +1,3 @@
-export interface Archetype {
-	name: string;
-	slug: string;
-	url: string;
-	metaShare: number;
-	trend: number;
-	tier: string;
-	deckCount: number;
-}
-
 export interface Card {
 	name: string;
 	quantity: number;
@@ -18,6 +8,7 @@ export interface Decklist {
 	sideboard: Card[];
 	player: string;
 	placement: string;
+	archetype: string;
 	event: string;
 	platform: string;
 	date: string;
@@ -32,7 +23,18 @@ export interface OptimizerResult {
 	unavailableCards: string[];
 }
 
-export interface ArchetypeWithDeck extends Archetype {
+export interface TournamentEvent {
+	name: string;
+	url: string;
+	date: string;
+	players: number;
+}
+
+export interface DeckEntry {
 	decklist: Decklist;
 	optimizer: OptimizerResult | null;
+}
+
+export interface TournamentWithDecks extends TournamentEvent {
+	decks: DeckEntry[];
 }

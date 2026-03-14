@@ -12,8 +12,9 @@ export const GET: RequestHandler = async () => {
 
 			try {
 				await getMetagameDataStreaming({
-					onDecks: (archetypes) => send('decks', archetypes),
-					onPrice: (index, optimizer) => send('price', { index, optimizer }),
+					onDecks: (tournaments) => send('decks', tournaments),
+					onPrice: (tournamentIdx, deckIdx, optimizer) =>
+						send('price', { tournamentIdx, deckIdx, optimizer }),
 					onDone: () => send('done', {})
 				});
 			} catch (err) {

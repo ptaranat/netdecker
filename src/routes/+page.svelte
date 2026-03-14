@@ -1,13 +1,31 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { ArchetypeWithDeck } from '$lib/types';
+	import type { TournamentWithDecks } from '$lib/types';
+
+	import type { DeckEntry, TournamentEvent } from '$lib/types';
+
+	interface FlatDeck extends DeckEntry {
+		tournament: TournamentEvent;
+	}
 
 	let { data } = $props();
-	let archetypes = $state<ArchetypeWithDeck[]>([]);
+	let tournaments = $state<TournamentWithDecks[]>([]);
 	let loading = $state(true);
 	let pricingDone = $state(false);
 	let error = $state<string | null>(null);
 	let loadingMsg = $state('');
+
+	// Flatten: all 1st place finishers first, then all 2nd place
+	let flatDecks = $derived.by(() => {
+		const firsts: FlatDeck[] = [];
+		const seconds: FlatDeck[] = [];
+		for (const t of tournaments) {
+			const event: TournamentEvent = { name: t.name, url: t.url, date: t.date, players: t.players };
+			if (t.decks[0]) firsts.push({ ...t.decks[0], tournament: event });
+			if (t.decks[1]) seconds.push({ ...t.decks[1], tournament: event });
+		}
+		return [...firsts, ...seconds];
+	});
 
 	const LOADING_MESSAGES = [
 		'bolting the bird...',
@@ -43,14 +61,24 @@
 		const es = new EventSource('/api/metagame');
 
 		es.addEventListener('decks', (e) => {
-			archetypes = JSON.parse(e.data);
+			tournaments = JSON.parse(e.data);
 			loading = false;
 			clearInterval(msgInterval);
 		});
 
 		es.addEventListener('price', (e) => {
-			const { index, optimizer } = JSON.parse(e.data);
-			archetypes[index] = { ...archetypes[index], optimizer };
+			const { tournamentIdx, deckIdx, optimizer } = JSON.parse(e.data);
+			// Trigger reactivity by reassigning the tournaments array
+			tournaments = tournaments.map((t, ti) => {
+				if (ti !== tournamentIdx) return t;
+				return {
+					...t,
+					decks: t.decks.map((d, di) => {
+						if (di !== deckIdx) return d;
+						return { ...d, optimizer };
+					})
+				};
+			});
 		});
 
 		es.addEventListener('done', () => {
@@ -60,19 +88,13 @@
 		});
 
 		es.addEventListener('error', () => {
-			error = 'Failed to load metagame data. Please try again later.';
+			error = 'Failed to load data. Please try again later.';
 			loading = false;
 			clearInterval(msgInterval);
 			clearInterval(spinInterval);
 			es.close();
 		});
 	});
-
-	function trendSymbol(trend: number): string {
-		if (trend > 0) return `▲ +${trend.toFixed(2)}%`;
-		if (trend < 0) return `▼ ${trend.toFixed(2)}%`;
-		return `${trend.toFixed(2)}%`;
-	}
 
 	function formatPrice(price: number): string {
 		return `$${price.toFixed(2)}`;
@@ -92,8 +114,8 @@
 </script>
 
 <svelte:head>
-	<title>netdecker — Standard Metagame Tracker</title>
-	<meta name="description" content="Top 5 Standard archetypes with Manapool-optimized pricing" />
+	<title>netdecker — top standard decks</title>
+	<meta name="description" content="Top Standard decks from major tournaments with Manapool-optimized pricing" />
 </svelte:head>
 
 <div class="page">
@@ -115,23 +137,22 @@
 		</div>
 	{/if}
 
-	{#each archetypes as arch, i}
+	{#each flatDecks as deck}
 		<section class="archetype-card">
 			<div class="card-title">
-				<span class="arch-rank">#{i + 1}</span>
-				<span class="arch-name">{arch.name}</span>
-				<span class="arch-meta">{arch.deckCount} decks  {arch.metaShare.toFixed(1)}%</span>
-				<span class="arch-trend" class:trend-up={arch.trend > 0} class:trend-down={arch.trend < 0}>{trendSymbol(arch.trend)}</span>
+				<span class="deck-placement">{deck.decklist.placement}</span>
+				<a href={deck.decklist.url} target="_blank" rel="noopener" class="deck-archetype">{deck.decklist.archetype}</a>
+				<span class="deck-player">{deck.decklist.player}</span>
 			</div>
 			<div class="card-body">
-				<div class="arch-event">
-					<a href={arch.decklist.url} target="_blank" rel="noopener">{arch.decklist.placement} by {arch.decklist.player}</a> — {truncate(arch.decklist.event, 45)}, {arch.decklist.date}
+				<div class="deck-event">
+					{deck.tournament.name}  {deck.tournament.players} players  {deck.tournament.date}
 				</div>
 
 				<div class="deck-grid">
 					<div class="deck-col">
-						<div class="deck-title">MAINBOARD ({arch.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)})</div>
-						{#each arch.decklist.mainboard as card}
+						<div class="deck-title">MAINBOARD ({deck.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)})</div>
+						{#each deck.decklist.mainboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name">{card.name}</span>
@@ -139,8 +160,8 @@
 						{/each}
 					</div>
 					<div class="deck-col">
-						<div class="deck-title">SIDEBOARD ({arch.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)})</div>
-						{#each arch.decklist.sideboard as card}
+						<div class="deck-title">SIDEBOARD ({deck.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)})</div>
+						{#each deck.decklist.sideboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name">{card.name}</span>
@@ -150,23 +171,22 @@
 				</div>
 
 				<div class="pricing">
-					{#if arch.optimizer}
-						<div class="price-result">
-							<span class="price-amount">{formatPrice(arch.optimizer.totalPrice)}</span>
-							<span class="price-sellers">{arch.optimizer.sellerCount} sellers</span>
-						</div>
-						{#if arch.optimizer.unavailableCards.length > 0}
-							<div class="price-warn">not on manapool: {arch.optimizer.unavailableCards.join(', ')}</div>
+					{#if deck.optimizer}
+						<span class="price-amount">{formatPrice(deck.optimizer.totalPrice)}</span>
+						<span class="price-sellers">{deck.optimizer.sellerCount} sellers</span>
+						{#if deck.optimizer.unavailableCards.length > 0}
+							<span class="price-warn">({deck.optimizer.unavailableCards.length} cards not on manapool)</span>
 						{/if}
 					{:else if pricingDone}
-						<div class="price-na">pricing unavailable</div>
+						<span class="price-na">pricing unavailable</span>
 					{:else}
-						<div class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> optimizing price</div>
+						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> optimizing price</span>
 					{/if}
 				</div>
 			</div>
 		</section>
 	{/each}
+
 	<footer class="grid footer">
 		<div>netdecker.app</div>
 		<div class="credits">
@@ -236,7 +256,7 @@
 	}
 
 	.error {
-		color: #cc5544;
+		color: var(--red);
 	}
 
 	.loading {
@@ -268,49 +288,31 @@
 	}
 
 	.card-body {
-		padding: 0.5lh 2ch 1lh 2ch;
+		padding: 1lh 2ch;
 	}
 
-	.arch-rank {
-		color: var(--text-muted);
-	}
-
-	.arch-name {
-		color: var(--accent);
-		font-weight: 700;
-		flex: 1;
-	}
-
-	.arch-meta {
-		color: var(--text);
-	}
-
-	.arch-trend {
-		color: var(--text-muted);
-		width: 10ch;
-		text-align: right;
-	}
-
-	.trend-up {
-		color: var(--green);
-	}
-
-	.trend-down {
-		color: var(--red);
-	}
-
-	.arch-event {
+	.deck-event {
 		color: var(--text-muted);
 		margin-bottom: 0.5lh;
 	}
 
-	.arch-event a {
+	.deck-placement {
 		color: var(--text);
-		text-decoration: none;
+		font-weight: 700;
 	}
 
-	.arch-event a:hover {
+	.deck-archetype {
 		color: var(--accent);
+		text-decoration: none;
+		flex: 1;
+	}
+
+	.deck-archetype:hover {
+		color: var(--accent-hover);
+	}
+
+	.deck-player {
+		color: var(--text-muted);
 	}
 
 	.deck-grid {
@@ -370,9 +372,6 @@
 
 	.pricing {
 		margin-top: 0.5lh;
-	}
-
-	.price-result {
 		display: flex;
 		gap: 2ch;
 	}
@@ -426,7 +425,6 @@
 		}
 
 		.deck-col:last-child {
-			border-left: none;
 			padding-left: 0;
 			border-top: 1px solid var(--border);
 			padding-top: 1lh;
@@ -438,6 +436,10 @@
 
 		.archetype-card {
 			margin: 1lh 1ch;
+		}
+
+		.card-title {
+			flex-direction: column;
 		}
 	}
 </style>

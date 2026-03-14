@@ -1,12 +1,15 @@
-import type { ArchetypeWithDeck, OptimizerResult } from '$lib/types';
+import type { TournamentWithDecks, DeckEntry } from '$lib/types';
 import { getCached, setCache, getStale } from './cache';
-import { fetchTopArchetypes } from './scraper/metagame';
-import { fetchBestDeckUrl } from './scraper/archetype';
+import { fetchMajorTournaments, fetchTopDeckUrls } from './scraper/tournaments';
 import { fetchDecklist } from './scraper/decklist';
 import { resolveCardNames } from './scraper/cardnames';
 import { optimizeDecklist } from './manapool/optimizer';
 
-const CACHE_KEY = 'metagame-data';
+const CACHE_KEY = 'tournament-data';
+
+// Prevent concurrent pipeline runs
+let activeBuild: Promise<void> | null = null;
+const pendingCallbacks: PipelineCallbacks[] = [];
 
 function timer() {
 	const start = performance.now();
@@ -14,13 +17,13 @@ function timer() {
 }
 
 export interface PipelineCallbacks {
-	onDecks: (archetypes: ArchetypeWithDeck[]) => void;
-	onPrice: (index: number, optimizer: OptimizerResult) => void;
-	onDone: (archetypes: ArchetypeWithDeck[]) => void;
+	onDecks: (tournaments: TournamentWithDecks[]) => void;
+	onPrice: (tournamentIdx: number, deckIdx: number, optimizer: DeckEntry['optimizer']) => void;
+	onDone: (tournaments: TournamentWithDecks[]) => void;
 }
 
 export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<void> {
-	const cached = getCached<ArchetypeWithDeck[]>(CACHE_KEY);
+	const cached = getCached<TournamentWithDecks[]>(CACHE_KEY);
 	if (cached) {
 		console.log('[pipeline] cache hit');
 		cb.onDecks(cached);
@@ -28,64 +31,109 @@ export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<v
 		return;
 	}
 
+	// If a build is already running, piggyback on it
+	if (activeBuild) {
+		console.log('[pipeline] build in progress, waiting...');
+		pendingCallbacks.push(cb);
+		await activeBuild;
+		return;
+	}
+
+	activeBuild = runPipeline(cb);
+	try {
+		await activeBuild;
+	} finally {
+		activeBuild = null;
+	}
+}
+
+async function runPipeline(cb: PipelineCallbacks): Promise<void> {
+	const allCallbacks = [cb];
 	const total = timer();
 
+	function broadcast(fn: (cb: PipelineCallbacks) => void) {
+		for (const c of allCallbacks) fn(c);
+		for (const c of pendingCallbacks) fn(c);
+	}
+
 	try {
-		// Phase 1: scrape all decklists
+		// Phase 1: find major tournaments
 		let t = timer();
-		const archetypes = await fetchTopArchetypes(5);
-		console.log(`[pipeline] metagame page: ${t()}`);
+		const tournaments = await fetchMajorTournaments(3);
+		console.log(`[pipeline] found ${tournaments.length} major tournaments: ${t()}`);
 
-		const decks: ArchetypeWithDeck[] = [];
+		const results: TournamentWithDecks[] = [];
 
-		for (const archetype of archetypes) {
+		// Phase 2: fetch top 2 decklists from each tournament
+		for (const tournament of tournaments) {
 			t = timer();
-			try {
-				const deckUrl = await fetchBestDeckUrl(archetype.url);
-				if (!deckUrl) {
-					console.warn(`[${archetype.name}] no deck found`);
-					continue;
+			const deckUrls = await fetchTopDeckUrls(tournament.url, 2);
+			console.log(`[${tournament.name}] found ${deckUrls.length} deck URLs: ${t()}`);
+
+			const decks: DeckEntry[] = [];
+			for (const url of deckUrls) {
+				t = timer();
+				try {
+					const decklist = await fetchDecklist(url);
+					console.log(`[${tournament.name}] ${decklist.placement} ${decklist.player}: ${t()}`);
+					decks.push({ decklist, optimizer: null });
+				} catch (err) {
+					console.error(`[${tournament.name}] failed to fetch deck ${url}:`, err);
 				}
-				const decklist = await fetchDecklist(deckUrl);
-				console.log(`[${archetype.name}] scrape: ${t()}`);
-				decks.push({ ...archetype, decklist, optimizer: null });
-			} catch (err) {
-				console.error(`[${archetype.name}] scrape failed:`, err);
 			}
+
+			results.push({
+				name: tournament.name,
+				url: tournament.url,
+				date: tournament.date,
+				players: tournament.players,
+				decks
+			});
 		}
 
 		// Send decklists immediately
-		cb.onDecks(decks);
+		broadcast((c) => c.onDecks(results));
 
-		// Phase 2: optimize prices in parallel
-		const pricePromises = decks.map(async (deck, i) => {
-			const name = deck.name;
-			const pt = timer();
-			try {
-				const allCards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
-				const resolvedCards = await resolveCardNames(allCards);
-				const optimizer = await optimizeDecklist(resolvedCards);
-				console.log(`[${name}] optimizer: ${pt()}`);
-				if (optimizer) {
-					decks[i].optimizer = optimizer;
-					cb.onPrice(i, optimizer);
-				}
-			} catch (err) {
-				console.error(`[${name}] optimizer failed:`, err);
+		// Phase 3: optimize prices in parallel
+		const pricePromises: Promise<void>[] = [];
+
+		for (let ti = 0; ti < results.length; ti++) {
+			for (let di = 0; di < results[ti].decks.length; di++) {
+				const deck = results[ti].decks[di];
+				const name = `${deck.decklist.player} @ ${results[ti].name}`;
+
+				pricePromises.push(
+					(async () => {
+						const pt = timer();
+						try {
+							const allCards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
+							const resolvedCards = await resolveCardNames(allCards);
+							const optimizer = await optimizeDecklist(resolvedCards);
+							console.log(`[optimizer] ${name}: ${pt()}`);
+							if (optimizer) {
+								results[ti].decks[di].optimizer = optimizer;
+								broadcast((c) => c.onPrice(ti, di, optimizer));
+							}
+						} catch (err) {
+							console.error(`[optimizer] ${name} failed:`, err);
+						}
+					})()
+				);
 			}
-		});
+		}
 
 		await Promise.all(pricePromises);
 
-		setCache(CACHE_KEY, decks);
+		setCache(CACHE_KEY, results);
 		console.log(`[pipeline] total: ${total()}`);
-		cb.onDone(decks);
+		broadcast((c) => c.onDone(results));
+		pendingCallbacks.length = 0;
 	} catch (err) {
 		console.error('Pipeline failed:', err);
-		const stale = getStale<ArchetypeWithDeck[]>(CACHE_KEY);
+		const stale = getStale<TournamentWithDecks[]>(CACHE_KEY);
 		if (stale) {
-			cb.onDecks(stale);
-			cb.onDone(stale);
+			broadcast((c) => c.onDecks(stale));
+			broadcast((c) => c.onDone(stale));
 		} else {
 			throw err;
 		}
