@@ -39,3 +39,7 @@ export interface DeckEntry {
 export interface TournamentWithDecks extends TournamentEvent {
 	decks: DeckEntry[];
 }
+
+export function allCards(decklist: Decklist): Card[] {
+	return [...decklist.mainboard, ...decklist.sideboard];
+}

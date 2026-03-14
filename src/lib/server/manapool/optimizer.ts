@@ -15,8 +15,12 @@ interface UnavailableItem {
 	total_available: number;
 }
 
+const MAX_RETRIES = 3;
+const LANGUAGE_IDS = ['EN'];
+const FINISH_IDS = ['NF'];
+const CONDITION_IDS = ['NM', 'LP', 'MP', 'HP'];
+
 interface OptimizerResponse {
-	cart: unknown[];
 	totals: {
 		subtotal_cents: number;
 		shipping_cents: number;
@@ -34,16 +38,16 @@ export async function optimizeDecklist(
 	let currentCards = cards;
 	const unavailableCards: string[] = [];
 
-	for (let attempt = 0; attempt < 3; attempt++) {
+	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		if (currentCards.length === 0) return null;
 
 		const cart: OptimizerCartItem[] = currentCards.map((card) => ({
 			type: 'mtg_single',
 			name: card.name,
 			quantity_requested: card.quantity,
-			language_ids: ['EN'],
-			finish_ids: ['NF'],
-			condition_ids: ['NM', 'LP', 'MP', 'HP']
+			language_ids: LANGUAGE_IDS,
+			finish_ids: FINISH_IDS,
+			condition_ids: CONDITION_IDS
 		}));
 
 		try {

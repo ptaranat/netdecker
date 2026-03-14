@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { TournamentWithDecks } from '$lib/types';
-
-	import type { DeckEntry, TournamentEvent } from '$lib/types';
+	import type { TournamentWithDecks, DeckEntry, TournamentEvent } from '$lib/types';
 
 	interface FlatDeck extends DeckEntry {
 		tournament: TournamentEvent;
