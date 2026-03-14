@@ -136,6 +136,7 @@
 		</div>
 	{/if}
 
+	<div class="deck-list">
 	{#each flatDecks as deck, deckIndex}
 		<section class="archetype-card">
 			<div class="card-title">
@@ -186,6 +187,7 @@
 			</div>
 		</section>
 	{/each}
+	</div>
 
 	<footer class="grid footer">
 		<div>netdecker.app — netdeck responsibly</div>
@@ -230,6 +232,11 @@
 		width: 100%;
 	}
 
+	.deck-list {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.grid {
 		padding: 1lh 2ch;
 	}
@@ -267,6 +274,8 @@
 
 	.archetype-card {
 		margin: 1lh 2ch;
+		display: flex;
+		flex-direction: column;
 		box-shadow:
 			inset 2px 0 0 0 var(--border),
 			inset -2px 0 0 0 var(--border),
@@ -285,7 +294,10 @@
 	}
 
 	.card-body {
-		padding: 1lh 2ch;
+		padding: 0.5lh 2ch 1lh 2ch;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
 	}
 
 	.deck-event {
@@ -368,7 +380,8 @@
 	}
 
 	.pricing {
-		margin-top: 0.5lh;
+		margin-top: auto;
+		padding-top: 0.5lh;
 		display: flex;
 		gap: 2ch;
 	}
@@ -410,6 +423,22 @@
 
 	.credits a:hover {
 		color: var(--accent);
+	}
+
+	@media (min-width: 1400px) {
+		.page {
+			max-width: 100%;
+		}
+
+		.deck-list {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			padding: 0 2ch;
+		}
+
+		.archetype-card {
+			margin: 1lh 1ch;
+		}
 	}
 
 	@media (max-width: 600px) {
