@@ -312,7 +312,7 @@
 	}
 
 	.card-body {
-		padding: 0.5lh 2ch 1lh 2ch;
+		padding: 0 2ch 0.5lh 2ch;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -320,7 +320,6 @@
 
 	.deck-event {
 		color: var(--text-muted);
-		margin-bottom: 0.5lh;
 	}
 
 	.deck-placement {
@@ -339,7 +338,7 @@
 	}
 
 	.deck-player {
-		color: var(--text-muted);
+		color: var(--text);
 	}
 
 	.deck-grid {
@@ -351,7 +350,7 @@
 	}
 
 	.deck-col {
-		padding: 0.5lh 0;
+		padding: 0;
 		min-width: 0;
 		overflow: hidden;
 	}
@@ -366,7 +365,6 @@
 
 	.deck-title {
 		color: var(--text-muted);
-		margin-bottom: 0.25lh;
 	}
 
 	.card-row {
@@ -399,21 +397,20 @@
 
 	.pricing {
 		margin-top: auto;
-		padding-top: 0.5lh;
+		padding-top: 0.25lh;
 		display: flex;
+		align-items: baseline;
 		gap: 2ch;
 	}
 
 	.price-amount {
 		color: var(--green);
-	}
-
-	.price-sellers {
-		color: var(--text-muted);
+		flex: 1;
 	}
 
 	.price-warn {
 		color: var(--text-dim);
+		flex: 1;
 	}
 
 	.price-loading {
@@ -429,9 +426,6 @@
 		text-decoration: none;
 	}
 
-	.deck-action:first-of-type {
-		margin-left: auto;
-	}
 
 	.deck-action:hover {
 		color: var(--accent-hover);
