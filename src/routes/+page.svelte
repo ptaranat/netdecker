@@ -133,12 +133,16 @@
 
 	function preloadImage(name: string) {
 		if (imageCache.has(name)) return;
+		imageCache.add(name);
 		const img = new Image();
 		img.src = scryfallImageUrl(name);
-		imageCache.add(name);
 		if (name.includes('//')) {
-			const back = new Image();
-			back.src = scryfallImageUrl(name, true);
+			new Image().src = scryfallImageUrl(name, true);
+		}
+		if (name in NEO_BASICS) {
+			// Preload alt variant
+			const num = NEO_BASICS[name][1];
+			new Image().src = `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
 		}
 	}
 
@@ -158,10 +162,31 @@
 	}
 
 	function flipCard() {
-		if (hoverCard?.includes('//')) showBack = !showBack;
+		if (!hoverCard) return;
+		if (hoverCard in NEO_BASICS) {
+			basicAlt = !basicAlt;
+		} else if (hoverCard.includes('//')) {
+			showBack = !showBack;
+		}
 	}
 
+	// Kamigawa Neon Dynasty full art basics (Japanese)
+	const NEO_BASICS: Record<string, [string, string]> = {
+		Plains: ['293', '294'],
+		Island: ['295', '296'],
+		Swamp: ['297', '298'],
+		Mountain: ['299', '300'],
+		Forest: ['301', '302']
+	};
+
+	let basicAlt = $state(false);
+
 	function scryfallImageUrl(name: string, back = false): string {
+		const neo = NEO_BASICS[name];
+		if (neo) {
+			const num = basicAlt ? neo[1] : neo[0];
+			return `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
+		}
 		const face = back ? '&face=back' : '';
 		return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal${face}`;
 	}
@@ -265,8 +290,8 @@
 	{#if hoverCard}
 		<div class="card-preview" style="left: {hoverPos.x + 16}px; top: {hoverPos.y - 100}px;">
 			<img src={scryfallImageUrl(hoverCard, showBack)} alt={hoverCard} width="210" height="293" />
-			{#if hoverCard.includes('//')}
-				<div class="flip-hint">{showBack ? 'back' : 'front'} — click name to flip</div>
+			{#if hoverCard.includes('//') || hoverCard in NEO_BASICS}
+				<div class="flip-hint">click name to flip</div>
 			{/if}
 		</div>
 	{/if}
