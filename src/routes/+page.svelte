@@ -23,7 +23,11 @@
 		'going to combat...'
 	];
 
+	const SPINNER = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+	let spinIdx = $state(0);
+
 	let msgInterval: ReturnType<typeof setInterval>;
+	let spinInterval: ReturnType<typeof setInterval>;
 
 	onMount(() => {
 		let msgIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
@@ -32,6 +36,9 @@
 			msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
 			loadingMsg = LOADING_MESSAGES[msgIndex];
 		}, 2000);
+		spinInterval = setInterval(() => {
+			spinIdx = (spinIdx + 1) % SPINNER.length;
+		}, 100);
 
 		const es = new EventSource('/api/metagame');
 
@@ -48,6 +55,7 @@
 
 		es.addEventListener('done', () => {
 			pricingDone = true;
+			clearInterval(spinInterval);
 			es.close();
 		});
 
@@ -55,6 +63,7 @@
 			error = 'Failed to load metagame data. Please try again later.';
 			loading = false;
 			clearInterval(msgInterval);
+			clearInterval(spinInterval);
 			es.close();
 		});
 	});
@@ -62,14 +71,14 @@
 	function trendSymbol(trend: number): string {
 		if (trend > 0) return `▲ +${trend.toFixed(2)}%`;
 		if (trend < 0) return `▼ ${trend.toFixed(2)}%`;
-		return `= ${trend.toFixed(2)}%`;
+		return `${trend.toFixed(2)}%`;
 	}
 
 	function formatPrice(price: number): string {
 		return `$${price.toFixed(2)}`;
 	}
 
-	function truncate(str: string, max = 40): string {
+	function truncate(str: string, max = 50): string {
 		return str.length > max ? str.slice(0, max - 1) + '…' : str;
 	}
 
@@ -87,252 +96,321 @@
 	<meta name="description" content="Top 5 Standard archetypes with Manapool-optimized pricing" />
 </svelte:head>
 
-<div class="terminal">
-	<header>
-		<pre class="logo">{ASCII_LOGO}</pre>
-		<p class="tagline">standard metagame tracker · prices by manapool</p>
-		<p class="meta">
-			source: mtgdecks.net · major events (last 30 days) · updated: {new Date(
-				data.lastUpdated
-			).toLocaleDateString()}
-		</p>
-	</header>
+<div class="page">
+	<div class="grid">
+		<header>
+			<pre class="logo">{ASCII_LOGO}</pre>
+			<div class="tagline">standard metagame tracker</div>
+			<div class="meta">prices optimized by manapool  /  data from mtgdecks.net  /  major events, last 30 days</div>
+		</header>
+	</div>
 
 	{#if error}
-		<div class="error">
-			<pre>ERROR: {error}</pre>
-		</div>
+		<div class="grid error">{error}</div>
 	{/if}
 
 	{#if loading}
-		<pre class="loading">&gt; {loadingMsg}</pre>
+		<div class="grid loading">
+			<span class="spinner">{SPINNER[spinIdx]}</span> {loadingMsg}
+		</div>
 	{/if}
 
-	<div class="archetypes">
-		{#each archetypes as arch, i}
-			<section class="archetype">
-				<div class="archetype-header">
-					<pre>───────────────────────────────────────────────────────</pre>
-					<pre class="arch-name">#{i + 1} {arch.name}  [{arch.tier}]</pre>
-					<pre class="arch-stats">meta: {arch.metaShare.toFixed(2)}%  {trendSymbol(arch.trend)}  ·  {arch.deckCount} decks</pre>
+	{#each archetypes as arch, i}
+		<section class="archetype-card">
+			<div class="card-title">
+				<span class="arch-rank">#{i + 1}</span>
+				<span class="arch-name">{arch.name}</span>
+				<span class="arch-meta">{arch.metaShare.toFixed(2)}%</span>
+				<span class="arch-trend" class:trend-up={arch.trend > 0} class:trend-down={arch.trend < 0}>{trendSymbol(arch.trend)}</span>
+			</div>
+			<div class="card-body">
+				<div class="arch-event">
+					{arch.decklist.placement} by {arch.decklist.player} — {truncate(arch.decklist.event, 45)}, {arch.decklist.date}
 				</div>
 
-				<div class="deck-meta">
-					<pre>  {arch.decklist.placement} by {arch.decklist.player}  ·  {arch.decklist.platform}  ·  {arch.decklist.date}</pre>
-					<pre>  {truncate(arch.decklist.event, 60)}</pre>
-				</div>
-
-				<div class="deck-content">
-					<div class="mainboard">
-						<pre class="section-title">─── mainboard ({arch.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)}) ───</pre>
+				<div class="deck-grid">
+					<div class="deck-col">
+						<div class="deck-title">MAINBOARD ({arch.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)})</div>
 						{#each arch.decklist.mainboard as card}
-							<pre class="card-line">{String(card.quantity).padStart(2)} {card.name}</pre>
+							<div class="card-row">
+								<span class="card-qty">{card.quantity}</span>
+								<span class="card-name">{card.name}</span>
+							</div>
 						{/each}
 					</div>
-					<div class="sideboard">
-						<pre class="section-title">─── sideboard ({arch.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)}) ───</pre>
+					<div class="deck-col">
+						<div class="deck-title">SIDEBOARD ({arch.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)})</div>
 						{#each arch.decklist.sideboard as card}
-							<pre class="card-line">{String(card.quantity).padStart(2)} {card.name}</pre>
+							<div class="card-row">
+								<span class="card-qty">{card.quantity}</span>
+								<span class="card-name">{card.name}</span>
+							</div>
 						{/each}
 					</div>
 				</div>
 
 				<div class="pricing">
 					{#if arch.optimizer}
-						<pre class="price-box">─── manapool optimizer (balanced) ───</pre>
-						<pre class="price-line">total: {formatPrice(arch.optimizer.totalPrice)}  ·  {arch.optimizer.sellerCount} sellers</pre>
+						<div class="price-result">
+							<span class="price-amount">{formatPrice(arch.optimizer.totalPrice)}</span>
+							<span class="price-sellers">{arch.optimizer.sellerCount} sellers</span>
+						</div>
 						{#if arch.optimizer.unavailableCards.length > 0}
-							<pre class="price-warn">  not on manapool: {arch.optimizer.unavailableCards.join(', ')}</pre>
-						{/if}
-						{#if arch.optimizer.cartUrl}
-							<pre class="buy-link"><a href={arch.optimizer.cartUrl} target="_blank" rel="noopener">[buy on manapool]</a></pre>
+							<div class="price-warn">not on manapool: {arch.optimizer.unavailableCards.join(', ')}</div>
 						{/if}
 					{:else if pricingDone}
-						<pre class="price-unavailable">pricing unavailable</pre>
+						<div class="price-na">pricing unavailable</div>
 					{:else}
-						<pre class="price-loading">optimizing price...</pre>
+						<div class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> optimizing price</div>
 					{/if}
 				</div>
-			</section>
-		{/each}
-	</div>
-
-	<footer>
-		<pre class="footer-text">
-───────────────────────────────────────────────────────────────────────────
-  netdecker.app · powered by manapool.com · data from mtgdecks.net
-───────────────────────────────────────────────────────────────────────────</pre>
+			</div>
+		</section>
+	{/each}
+	<footer class="grid footer">
+		netdecker.app
 	</footer>
 </div>
 
 <style>
-	:global(body) {
+	:global(*) {
+		border: 0;
+		box-sizing: border-box;
 		margin: 0;
 		padding: 0;
-		background: #1a1a1a;
-		color: #e8e4dc;
-		font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', Courier, monospace;
+	}
+
+	:global(body) {
+		--bg: #1a1a1a;
+		--text: #f0ece4;
+		--text-muted: #bbb;
+		--text-dim: #999;
+		--accent: #e8a349;
+		--accent-hover: #f0b860;
+		--green: #5cb85c;
+		--red: #cc5544;
+		--border: #666;
+		--hover-bg: #222;
+
+		background: var(--bg);
+		color: var(--text);
+		font-family: 'GeistMono-Regular', 'JetBrains Mono', 'Courier New', monospace;
 		font-size: 13px;
 		line-height: 1.5;
 	}
 
-	.terminal {
-		max-width: 80ch;
+	.page {
+		max-width: 72ch;
 		margin: 0 auto;
-		padding: 2rem 1rem;
+		width: 100%;
 	}
 
-	pre {
-		font-family: inherit;
-		font-size: inherit;
-		line-height: inherit;
+	.grid {
+		padding: 1lh 2ch;
 	}
 
 	header {
 		text-align: center;
-		margin-bottom: 2rem;
+		padding-top: 2lh;
 	}
 
 	.logo {
-		color: #e8a349;
+		color: var(--accent);
 		font-size: 8px;
 		line-height: 1.0;
-		margin: 0;
-		overflow-x: auto;
+		overflow: hidden;
 	}
 
 	.tagline {
-		color: #e8a349;
-		margin: 0.75rem 0 0 0;
+		color: var(--accent);
+		margin-top: 1lh;
 	}
 
 	.meta {
-		color: #777;
-		margin: 0.25rem 0 0 0;
+		color: var(--text-muted);
 	}
 
-	.error pre {
+	.error {
 		color: #cc5544;
 	}
 
 	.loading {
-		color: #e8a349;
-		text-align: center;
+		color: var(--accent);
 	}
 
-	.archetypes {
+	.spinner {
+		display: inline-block;
+		width: 1ch;
+	}
+
+	.archetype-card {
+		margin: 1.5lh 2ch;
+		box-shadow:
+			inset 2px 0 0 0 var(--border),
+			inset -2px 0 0 0 var(--border),
+			inset 0 -2px 0 0 var(--border);
+	}
+
+	.card-title {
 		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
+		gap: 1ch;
+		align-items: baseline;
+		padding: 0.5lh 2ch;
+		box-shadow:
+			inset 2px 0 0 0 var(--border),
+			inset -2px 0 0 0 var(--border),
+			inset 0 2px 0 0 var(--border);
 	}
 
-	.archetype {
-		border: none;
+	.card-body {
+		padding: 0.5lh 2ch 1lh 2ch;
 	}
 
-	.archetype-header pre {
-		color: #777;
-		margin: 0;
-		overflow-x: auto;
+	.arch-rank {
+		color: var(--text-muted);
 	}
 
 	.arch-name {
-		color: #e8a349;
-		font-weight: bold;
+		color: var(--accent);
+		font-weight: 700;
+		flex: 1;
 	}
 
-	.arch-stats {
-		color: #999;
+	.arch-meta {
+		color: var(--text);
 	}
 
-	.deck-meta pre {
-		color: #777;
-		margin: 0;
+	.arch-trend {
+		color: var(--text-muted);
+		width: 10ch;
+		text-align: right;
 	}
 
-	.deck-content {
+	.trend-up {
+		color: var(--green);
+	}
+
+	.trend-down {
+		color: var(--red);
+	}
+
+	.arch-event {
+		color: var(--text-muted);
+		margin-bottom: 0.5lh;
+	}
+
+	.deck-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-		margin: 0.5rem 0;
+		gap: 0;
+		min-width: 0;
+		overflow: hidden;
 	}
 
-	.section-title {
-		color: #e8a349;
-		margin: 0 0 0.25rem 0;
+	.deck-col {
+		padding: 0.5lh 0;
+		min-width: 0;
+		overflow: hidden;
 	}
 
-	.card-line {
-		margin: 0;
-		color: #e8e4dc;
+	.deck-col:first-child {
+		padding-right: 2ch;
 	}
 
-	.card-line:hover {
-		color: #ffffff;
-		background: #252525;
+	.deck-col:last-child {
+		padding-left: 2ch;
 	}
 
-	.price-box {
-		color: #e8a349;
-		margin: 0;
+	.deck-title {
+		color: var(--text-muted);
+		margin-bottom: 0.25lh;
 	}
 
-	.price-line {
-		color: #e8e4dc;
-		margin: 0;
+	.card-row {
+		display: flex;
+		gap: 1ch;
+	}
+
+	.card-row:hover {
+		background: var(--hover-bg);
+		color: #fff;
+	}
+
+	.card-qty {
+		width: 2ch;
+		text-align: right;
+		flex-shrink: 0;
+		color: var(--text-muted);
+	}
+
+	.card-name {
+		color: var(--text);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.card-row:hover .card-qty {
+		color: var(--text);
+	}
+
+	.pricing {
+		margin-top: 0.5lh;
+	}
+
+	.price-result {
+		display: flex;
+		gap: 2ch;
+	}
+
+	.price-amount {
+		color: var(--green);
+	}
+
+	.price-sellers {
+		color: var(--text-muted);
 	}
 
 	.price-warn {
-		color: #996633;
-		margin: 0;
+		color: var(--text-dim);
 	}
 
 	.price-loading {
-		color: #e8a349;
-		margin: 0;
-		opacity: 0.6;
+		color: var(--text-muted);
 	}
 
-	.price-unavailable {
-		color: #666;
-		margin: 0;
+	.price-na {
+		color: var(--text-dim);
 	}
 
-	.buy-link {
-		margin: 0;
-	}
-
-	.pricing a {
-		color: #e8a349;
-		text-decoration: none;
-	}
-
-	.pricing a:hover {
-		color: #f0b860;
-		text-decoration: underline;
-	}
-
-	footer {
-		margin-top: 2rem;
-	}
-
-	.footer-text {
-		color: #444;
+	.footer {
+		color: var(--text-dim);
 		text-align: center;
-		margin: 0;
+		padding-bottom: 2lh;
 	}
 
 	@media (max-width: 600px) {
 		.logo {
-			font-size: 6px;
+			font-size: 5px;
 		}
 
-		.deck-content {
+		.deck-grid {
 			grid-template-columns: 1fr;
 		}
 
-		.terminal {
-			font-size: 12px;
+		.deck-col:last-child {
+			border-left: none;
+			padding-left: 0;
+			border-top: 1px solid var(--border);
+			padding-top: 1lh;
+		}
+
+		.deck-col:first-child {
+			padding-right: 0;
+		}
+
+		.archetype-card {
+			margin: 1lh 1ch;
 		}
 	}
 </style>
