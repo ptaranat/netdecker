@@ -553,13 +553,13 @@ const ASCII_LOGO = [
 
 	<footer class="grid footer">
 		<div class="credits">
+			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
+			 (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
+		</div>
+		<div class="credits">
 			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
 			 / cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
-		</div>
-		<div class="credits">
-			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
-			 (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
 		</div>
 		<div class="disclaimer">
 			netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener">Fan Content Policy</a>.
