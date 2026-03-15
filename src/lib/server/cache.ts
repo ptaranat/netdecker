@@ -45,11 +45,7 @@ function saveToDisk<T>(key: string, data: T): void {
 export function getCached<T>(key: string, ttl = DEFAULT_TTL): T | null {
 	const entry = store.get(key) as CacheEntry<T> | undefined;
 	if (entry) {
-		if (Date.now() - entry.timestamp > ttl) {
-			store.delete(key);
-		} else {
-			return entry.data;
-		}
+		if (Date.now() - entry.timestamp <= ttl) return entry.data;
 	}
 
 	return loadFromDisk<T>(key, ttl);

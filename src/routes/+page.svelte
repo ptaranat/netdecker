@@ -155,6 +155,15 @@ onMount(() => {
 	});
 
 	es.addEventListener("error", () => {
+		// Native connection-close fires after the server ends the stream.
+		// If we already have data this is benign — just clean up.
+		if (tournaments.length > 0) {
+			pricingDone = true;
+			clearInterval(spinInterval);
+			clearInterval(msgInterval);
+			es.close();
+			return;
+		}
 		error = "Failed to load data. Please try again later.";
 		loading = false;
 		clearInterval(msgInterval);
