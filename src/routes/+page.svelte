@@ -93,7 +93,7 @@ async function fetchManapoolPrices() {
 function startPricePolling() {
 	if (priceInterval) return;
 	fetchManapoolPrices();
-	priceInterval = setInterval(fetchManapoolPrices, 5 * 60 * 1000);
+	priceInterval = setInterval(fetchManapoolPrices, 30 * 60 * 1000);
 }
 
 function stopPricePolling() {
@@ -163,8 +163,18 @@ onMount(() => {
 		es.close();
 	});
 
+	function onVisibilityChange() {
+		if (document.hidden) {
+			stopPricePolling();
+		} else if (tournaments.length > 0) {
+			startPricePolling();
+		}
+	}
+	document.addEventListener("visibilitychange", onVisibilityChange);
+
 	return () => {
 		stopPricePolling();
+		document.removeEventListener("visibilitychange", onVisibilityChange);
 	};
 });
 
@@ -193,6 +203,39 @@ async function copyDecklist(deck: FlatDeck, idx: number) {
 	setTimeout(() => {
 		copiedIdx = null;
 	}, 300);
+}
+
+let priceTooltip = $state<{
+	x: number;
+	y: number;
+	text: string;
+	cls: string;
+} | null>(null);
+
+function showPriceTooltip(
+	scryfallId: string | null,
+	scryfallUsd: number | null,
+	qty: number,
+	e: MouseEvent,
+) {
+	if (scryfallUsd == null || !scryfallId || !manapoolPrices[scryfallId]) return;
+	const mp = manapoolPrices[scryfallId];
+	const mpCents = mp.priceCentsLow ?? mp.priceCentsNm;
+	if (mpCents == null) return;
+	const deltaCents = mpCents * qty - Math.round(scryfallUsd * qty * 100);
+	const sign = deltaCents <= 0 ? "" : "+";
+	const cls =
+		deltaCents < 0 ? "delta-cheaper" : deltaCents > 0 ? "delta-pricier" : "";
+	priceTooltip = {
+		x: e.clientX,
+		y: e.clientY,
+		text: `${sign}$${(deltaCents / 100).toFixed(2)}`,
+		cls,
+	};
+}
+
+function hidePriceTooltip() {
+	priceTooltip = null;
 }
 
 let disclaimerPos = $state<{ x: number; y: number } | null>(null);
@@ -412,7 +455,7 @@ const ASCII_LOGO = [
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
 								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
-									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}">{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
@@ -424,7 +467,7 @@ const ASCII_LOGO = [
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
 								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
-									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}">{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
@@ -470,9 +513,6 @@ const ASCII_LOGO = [
 				<div class="price-details">
 					{#if unitCents != null}
 						<div class="price-row"><span class="price-label">low</span> <span>{formatCents(unitCents)}</span></div>
-						{#if hoverCardQty > 1}
-							<div class="price-row"><span class="price-label">x{hoverCardQty}</span> <span>{formatCents(unitCents * hoverCardQty)}</span></div>
-						{/if}
 					{/if}
 					{#if mp.priceMarket != null}
 						<div class="price-row"><span class="price-label">market</span> <span>{formatCents(mp.priceMarket)}</span></div>
@@ -487,6 +527,12 @@ const ASCII_LOGO = [
 					<div class="price-row"><span class="price-label">available</span> <span>{mp.availableQty}</span></div>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	{#if priceTooltip}
+		<div class="tooltip {priceTooltip.cls}" style="left: {priceTooltip.x}px; top: {priceTooltip.y + 20}px;">
+			{priceTooltip.text}
 		</div>
 	{/if}
 
