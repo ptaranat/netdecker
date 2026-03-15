@@ -10,6 +10,7 @@ const SCRYFALL_HEADERS = {
 interface CardInfo {
 	name: string;
 	priceUsd: number | null;
+	scryfallId: string | null;
 }
 
 // Persistent cache — survives across calls
@@ -28,7 +29,8 @@ export async function resolveCardNames(cards: Card[]): Promise<Card[]> {
 		return {
 			...c,
 			name: info?.name ?? c.name,
-			priceUsd: info?.priceUsd ?? null
+			priceUsd: info?.priceUsd ?? null,
+			scryfallId: info?.scryfallId ?? null
 		};
 	});
 }
@@ -60,7 +62,7 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 				);
 				if (inputName) {
 					const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
-					cardCache.set(inputName, { name: card.name, priceUsd: price });
+					cardCache.set(inputName, { name: card.name, priceUsd: price, scryfallId: card.id ?? null });
 				}
 			}
 
@@ -81,13 +83,13 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 			if (res.ok) {
 				const card = await res.json();
 				const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
-				cardCache.set(name, { name: card.name ?? name, priceUsd: price });
+				cardCache.set(name, { name: card.name ?? name, priceUsd: price, scryfallId: card.id ?? null });
 			} else {
-				cardCache.set(name, { name, priceUsd: null });
+				cardCache.set(name, { name, priceUsd: null, scryfallId: null });
 			}
 			await new Promise((r) => setTimeout(r, 100));
 		} catch {
-			cardCache.set(name, { name, priceUsd: null });
+			cardCache.set(name, { name, priceUsd: null, scryfallId: null });
 		}
 	}
 

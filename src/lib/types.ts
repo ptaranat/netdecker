@@ -2,6 +2,15 @@ export interface Card {
 	name: string;
 	quantity: number;
 	priceUsd: number | null;
+	scryfallId: string | null;
+}
+
+export interface ManapoolCardPrice {
+	priceCentsLow: number | null;
+	priceCentsNm: number | null;
+	priceMarket: number | null;
+	availableQty: number;
+	url: string;
 }
 
 export interface Decklist {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { TournamentWithDecks, DeckEntry, TournamentEvent } from '$lib/types';
+	import type { TournamentWithDecks, DeckEntry, TournamentEvent, ManapoolCardPrice } from '$lib/types';
 
 	interface FlatDeck extends DeckEntry {
 		tournament: TournamentEvent;
@@ -12,6 +12,10 @@
 	let pricingDone = $state(false);
 	let error = $state<string | null>(null);
 	let loadingMsg = $state('');
+
+	// Manapool live prices
+	let manapoolPrices = $state<Record<string, ManapoolCardPrice>>({});
+	let priceInterval: ReturnType<typeof setInterval> | null = null;
 
 	// Flatten: all 1st place finishers first, then all 2nd place
 	let flatDecks = $derived.by(() => {
@@ -46,6 +50,49 @@
 	let msgInterval: ReturnType<typeof setInterval>;
 	let spinInterval: ReturnType<typeof setInterval>;
 
+	function collectScryfallIds(): string[] {
+		const ids = new Set<string>();
+		for (const t of tournaments) {
+			for (const d of t.decks) {
+				for (const c of [...d.decklist.mainboard, ...d.decklist.sideboard]) {
+					if (c.scryfallId) ids.add(c.scryfallId);
+				}
+			}
+		}
+		return [...ids];
+	}
+
+	async function fetchManapoolPrices() {
+		const scryfallIds = collectScryfallIds();
+		if (scryfallIds.length === 0) return;
+
+		try {
+			const res = await fetch('/api/prices', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scryfallIds })
+			});
+			if (!res.ok) return;
+
+			manapoolPrices = await res.json();
+		} catch {
+			// silent fail
+		}
+	}
+
+	function startPricePolling() {
+		if (priceInterval) return;
+		fetchManapoolPrices();
+		priceInterval = setInterval(fetchManapoolPrices, 5 * 60 * 1000);
+	}
+
+	function stopPricePolling() {
+		if (priceInterval) {
+			clearInterval(priceInterval);
+			priceInterval = null;
+		}
+	}
+
 	onMount(() => {
 		let msgIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
 		loadingMsg = LOADING_MESSAGES[msgIndex];
@@ -71,6 +118,8 @@
 					}
 				}
 			}
+			// Fetch Manapool prices after decks load
+			startPricePolling();
 		});
 
 		es.addEventListener('price', (e) => {
@@ -100,12 +149,21 @@
 			loading = false;
 			clearInterval(msgInterval);
 			clearInterval(spinInterval);
+			stopPricePolling();
 			es.close();
 		});
+
+		return () => {
+			stopPricePolling();
+		};
 	});
 
 	function formatPrice(price: number): string {
 		return `$${price.toFixed(2)}`;
+	}
+
+	function formatCents(cents: number): string {
+		return `$${(cents / 100).toFixed(2)}`;
 	}
 
 	function decklistToText(deck: FlatDeck): string {
@@ -126,6 +184,9 @@
 	}
 
 	let hoverCard = $state<string | null>(null);
+	let hoverCardId = $state<string | null>(null);
+	let hoverCardQty = $state(1);
+	let hoverCardScryfall = $state<number | null>(null);
 	let hoverPos = $state({ x: 0, y: 0 });
 	let showBack = $state(false);
 
@@ -146,8 +207,11 @@
 		}
 	}
 
-	function showCard(name: string, e: MouseEvent) {
+	function showCard(name: string, scryfallId: string | null, qty: number, scryfallUsd: number | null, e: MouseEvent) {
 		hoverCard = name;
+		hoverCardId = scryfallId;
+		hoverCardQty = qty;
+		hoverCardScryfall = scryfallUsd;
 		showBack = false;
 		hoverPos = { x: e.clientX, y: e.clientY };
 	}
@@ -158,12 +222,13 @@
 
 	function hideCard() {
 		hoverCard = null;
+		hoverCardId = null;
 		showBack = false;
 	}
 
-	function handleClick(name: string, e: MouseEvent) {
+	function handleClick(name: string, scryfallId: string | null, qty: number, scryfallUsd: number | null, e: MouseEvent) {
 		if (hoverCard !== name) {
-			showCard(name, e);
+			showCard(name, scryfallId, qty, scryfallUsd, e);
 			return;
 		}
 		if (name in NEO_BASICS) {
@@ -196,6 +261,28 @@
 
 	function truncate(str: string, max = 50): string {
 		return str.length > max ? str.slice(0, max - 1) + '…' : str;
+	}
+
+	function getCardPriceClass(scryfallId: string | null, scryfallUsd: number | null): string {
+		if (!scryfallId || scryfallUsd == null) return '';
+		const mp = manapoolPrices[scryfallId];
+		if (!mp) return '';
+		const mpCents = (mp.priceCentsLow ?? mp.priceCentsNm) ?? null;
+		if (mpCents == null) return '';
+		// Compare Manapool (cents) vs Scryfall (dollars)
+		if (mpCents / 100 < scryfallUsd) return 'price-up';
+		if (mpCents / 100 > scryfallUsd) return 'price-down';
+		return '';
+	}
+
+	function getDisplayPrice(scryfallId: string | null, fallbackUsd: number | null, quantity: number): string | null {
+		if (scryfallId && manapoolPrices[scryfallId]) {
+			const mp = manapoolPrices[scryfallId];
+			const cents = mp.priceCentsLow ?? mp.priceCentsNm;
+			if (cents != null) return `$${((cents * quantity) / 100).toFixed(2)}`;
+		}
+		if (fallbackUsd != null) return `$${(fallbackUsd * quantity).toFixed(2)}`;
+		return null;
 	}
 
 	const ASCII_LOGO = [
@@ -249,9 +336,9 @@
 						{#each deck.decklist.mainboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, e as any)}>{card.name}</span>
-								{#if card.priceUsd}
-									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
+								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
+								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}">{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
@@ -261,9 +348,9 @@
 						{#each deck.decklist.sideboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
-								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, e as any)}>{card.name}</span>
-								{#if card.priceUsd}
-									<span class="card-price">${(card.priceUsd * card.quantity).toFixed(2)}</span>
+								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
+								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}">{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
@@ -295,6 +382,29 @@
 			<img src={scryfallImageUrl(hoverCard, showBack)} alt={hoverCard} width="210" height="293" />
 			{#if hoverCard.includes('//') || hoverCard in NEO_BASICS}
 				<div class="flip-hint">click name to flip</div>
+			{/if}
+			{#if hoverCardId && manapoolPrices[hoverCardId]}
+				{@const mp = manapoolPrices[hoverCardId]}
+				{@const unitCents = mp.priceCentsLow ?? mp.priceCentsNm}
+				<div class="price-details">
+					{#if unitCents != null}
+						<div class="price-row"><span class="price-label">low</span> <span>{formatCents(unitCents)}</span></div>
+						{#if hoverCardQty > 1}
+							<div class="price-row"><span class="price-label">x{hoverCardQty}</span> <span>{formatCents(unitCents * hoverCardQty)}</span></div>
+						{/if}
+					{/if}
+					{#if mp.priceMarket != null}
+						<div class="price-row"><span class="price-label">market</span> <span>{formatCents(mp.priceMarket)}</span></div>
+					{/if}
+					{#if unitCents != null && hoverCardScryfall != null}
+						{@const deltaCents = unitCents - Math.round(hoverCardScryfall * 100)}
+						<div class="price-row">
+							<span class="price-label">vs scryfall</span>
+							<span class={deltaCents < 0 ? 'delta-cheaper' : deltaCents > 0 ? 'delta-pricier' : ''}>{deltaCents <= 0 ? '' : '+'}{formatCents(deltaCents)}</span>
+						</div>
+					{/if}
+					<div class="price-row"><span class="price-label">available</span> <span>{mp.availableQty}</span></div>
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -481,12 +591,22 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		cursor: pointer;
 	}
 
 	.card-price {
 		margin-left: auto;
 		color: var(--text-dim);
 		flex-shrink: 0;
+		transition: color 0.3s ease;
+	}
+
+	.card-price.price-up {
+		color: var(--green);
+	}
+
+	.card-price.price-down {
+		color: var(--red);
 	}
 
 	.card-row:hover .card-qty {
@@ -518,6 +638,7 @@
 
 	.price-na {
 		flex: 1;
+		color: var(--text-dim);
 	}
 
 	.deck-action {
@@ -528,7 +649,6 @@
 		cursor: pointer;
 		text-decoration: none;
 	}
-
 
 	.deck-action:hover {
 		color: var(--accent-hover);
@@ -555,12 +675,31 @@
 		background: var(--bg);
 	}
 
-	.card-name {
-		cursor: pointer;
+	.price-details {
+		background: var(--bg);
+		padding: 6px 10px;
+		font-size: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 
-	.price-na {
+	.price-row {
+		display: flex;
+		justify-content: space-between;
+		gap: 2ch;
+	}
+
+	.price-label {
 		color: var(--text-dim);
+	}
+
+	.delta-cheaper {
+		color: var(--green);
+	}
+
+	.delta-pricier {
+		color: var(--red);
 	}
 
 	.footer {
