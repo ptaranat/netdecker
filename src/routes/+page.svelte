@@ -183,6 +183,16 @@
 		setTimeout(() => { copiedIdx = null; }, 300);
 	}
 
+	let disclaimerPos = $state<{ x: number; y: number } | null>(null);
+
+	function showDisclaimer(e: MouseEvent) {
+		disclaimerPos = { x: e.clientX, y: e.clientY };
+	}
+
+	function hideDisclaimer() {
+		disclaimerPos = null;
+	}
+
 	let hoverCard = $state<string | null>(null);
 	let hoverCardId = $state<string | null>(null);
 	let hoverCardQty = $state(1);
@@ -285,6 +295,33 @@
 		return null;
 	}
 
+	function deckTotals(deck: FlatDeck): { scryfall: number | null; manapool: number | null } {
+		const cards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
+		let scryfall = 0;
+		let scryfallComplete = false;
+		let manapool = 0;
+		let manapoolComplete = false;
+
+		for (const c of cards) {
+			if (c.priceUsd != null) {
+				scryfall += c.priceUsd * c.quantity;
+				scryfallComplete = true;
+			}
+			if (c.scryfallId && manapoolPrices[c.scryfallId]) {
+				const cents = manapoolPrices[c.scryfallId].priceCentsLow ?? manapoolPrices[c.scryfallId].priceCentsNm;
+				if (cents != null) {
+					manapool += (cents * c.quantity) / 100;
+					manapoolComplete = true;
+				}
+			}
+		}
+
+		return {
+			scryfall: scryfallComplete ? scryfall : null,
+			manapool: manapoolComplete ? manapool : null
+		};
+	}
+
 	const ASCII_LOGO = [
 		'███    ██ ███████ ████████ ██████  ███████  ██████ ██   ██ ███████ ██████ ',
 		'████   ██ ██         ██    ██   ██ ██      ██      ██  ██  ██      ██   ██',
@@ -304,7 +341,7 @@
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
 			<div class="tagline">netdecker.app — top standard decks</div>
-			<div class="legend"><span class="legend-green">green</span> cheaper on manapool</div>
+			<div class="legend">get <span class="legend-green" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
 		</header>
 	</div>
 
@@ -320,6 +357,7 @@
 
 	<div class="deck-list">
 	{#each flatDecks as deck, deckIndex}
+		{@const totals = deckTotals(deck)}
 		<section class="archetype-card">
 			<div class="card-title">
 				<span class="deck-placement">{deck.decklist.placement}</span>
@@ -359,16 +397,23 @@
 				</div>
 
 				<div class="pricing">
-					{#if deck.optimizer}
-						<span class="price-amount">{formatPrice(deck.optimizer.totalPrice)}</span>
-						{#if deck.optimizer.unavailableCards.length > 0}
-							<span class="price-warn">({deck.optimizer.unavailableCards.length} not on manapool)</span>
-						{/if}
-					{:else if pricingDone}
-						<span class="price-na">pricing unavailable</span>
-					{:else}
+					{#if totals.scryfall != null || totals.manapool != null}
+						<span class="price-compare">
+							{#if totals.scryfall != null}
+								<span class="price-scryfall">{formatPrice(totals.scryfall)}</span>
+							{/if}
+							{#if totals.scryfall != null && totals.manapool != null}
+								<span class="price-arrow">&gt;</span>
+								<span class={totals.manapool < totals.scryfall ? 'price-cheaper' : totals.manapool > totals.scryfall ? 'price-pricier' : 'price-same'}>{formatPrice(totals.manapool)}</span>
+							{:else if totals.manapool != null}
+								<span class="price-same">{formatPrice(totals.manapool)}</span>
+							{/if}
+						</span>
+					{:else if !pricingDone}
 						{@const msgIdx = (msgTick + deckIndex * 3) % LOADING_MESSAGES.length}
 						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {LOADING_MESSAGES[msgIdx]}</span>
+					{:else}
+						<span class="price-na">pricing unavailable</span>
 					{/if}
 					<button class="deck-action" onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'copied!' : 'copy decklist'}</button>
 					<a class="deck-action" href="https://manapool.com/add-deck" target="_blank" rel="noopener">buy on manapool</a>
@@ -407,6 +452,12 @@
 					<div class="price-row"><span class="price-label">available</span> <span>{mp.availableQty}</span></div>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	{#if disclaimerPos}
+		<div class="tooltip" style="left: {disclaimerPos.x}px; top: {disclaimerPos.y + 20}px;">
+			vs scryfall prices<br />(TCGplayer / Cardmarket)
 		</div>
 	{/if}
 
@@ -487,6 +538,15 @@
 
 	.legend-green {
 		color: var(--green);
+	}
+
+	.legend-link {
+		color: var(--accent);
+		text-decoration: none;
+	}
+
+	.legend-link:hover {
+		color: var(--accent-hover);
 	}
 
 	.error {
@@ -631,6 +691,34 @@
 		gap: 2ch;
 	}
 
+	.price-compare {
+		flex: 1;
+		display: flex;
+		gap: 1ch;
+		align-items: baseline;
+	}
+
+	.price-scryfall {
+		color: var(--text-dim);
+		text-decoration: line-through;
+	}
+
+	.price-arrow {
+		color: var(--text-dim);
+	}
+
+	.price-cheaper {
+		color: var(--green);
+	}
+
+	.price-pricier {
+		color: var(--red);
+	}
+
+	.price-same {
+		color: var(--text);
+	}
+
 	.price-amount {
 		color: var(--green);
 		flex: 1;
@@ -667,8 +755,8 @@
 	.card-preview {
 		position: fixed;
 		z-index: 100;
-		border-radius: 10px;
 		overflow: hidden;
+		border: 2px solid var(--border);
 		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 		pointer-events: none;
 	}
@@ -687,7 +775,7 @@
 
 	.price-details {
 		background: var(--bg);
-		padding: 6px 10px;
+		padding: 4px 8px;
 		font-size: 12px;
 		display: flex;
 		flex-direction: column;
@@ -702,6 +790,19 @@
 
 	.price-label {
 		color: var(--text-dim);
+	}
+
+	.tooltip {
+		position: fixed;
+		z-index: 100;
+		background: var(--bg);
+		color: var(--text-dim);
+		font-size: 12px;
+		padding: 4px 8px;
+		border: 2px solid var(--border);
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+		pointer-events: none;
+		text-align: center;
 	}
 
 	.delta-cheaper {
