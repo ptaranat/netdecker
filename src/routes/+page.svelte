@@ -304,6 +304,7 @@
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
 			<div class="tagline">netdecker.app — top standard decks</div>
+			<div class="legend"><span class="legend-green">green</span> cheaper on manapool</div>
 		</header>
 	</div>
 
@@ -458,12 +459,12 @@
 	}
 
 	.grid {
-		padding: 1lh 2ch;
+		padding: 0.5em 2ch;
 	}
 
 	header {
 		text-align: center;
-		padding-top: 2lh;
+		padding-top: 1lh;
 		padding-bottom: 0;
 	}
 
@@ -477,6 +478,15 @@
 	.tagline {
 		color: var(--accent);
 		margin-top: 1lh;
+	}
+
+	.legend {
+		color: var(--text-dim);
+		margin-top: 0.25lh;
+	}
+
+	.legend-green {
+		color: var(--green);
 	}
 
 	.error {
@@ -493,7 +503,7 @@
 	}
 
 	.archetype-card {
-		margin: 1lh 2ch;
+		margin: 0.5em 2ch;
 		display: flex;
 		flex-direction: column;
 		box-shadow:
