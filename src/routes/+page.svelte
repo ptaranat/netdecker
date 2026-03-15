@@ -428,7 +428,7 @@ const ASCII_LOGO = [
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">netdeck responsibly - get <span class="legend-green" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better*</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
+			<div class="tagline">netdeck responsibly - get <span class="legend-green" role="note" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better*</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
 		</header>
 	</div>
 
@@ -464,7 +464,7 @@ const ASCII_LOGO = [
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
 								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
-									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" role="note" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
@@ -476,7 +476,7 @@ const ASCII_LOGO = [
 								<span class="card-qty">{card.quantity}</span>
 								<span class="card-name" role="button" tabindex="-1" onmouseenter={(e) => showCard(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onmousemove={moveCard} onmouseleave={hideCard} onclick={(e) => handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e)} onkeydown={(e) => e.key === 'Enter' && handleClick(card.name, card.scryfallId, card.quantity, card.priceUsd, e as any)}>{card.name}</span>
 								{#if getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}
-									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
+									<span class="card-price {getCardPriceClass(card.scryfallId, card.priceUsd)}" role="note" onmouseenter={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmousemove={(e) => showPriceTooltip(card.scryfallId, card.priceUsd, card.quantity, e)} onmouseleave={hidePriceTooltip}>{getDisplayPrice(card.scryfallId, card.priceUsd, card.quantity)}</span>
 								{/if}
 							</div>
 						{/each}
