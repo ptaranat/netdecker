@@ -1,6 +1,6 @@
-import { json, type RequestEvent } from '@sveltejs/kit';
-import type { ManapoolCardPrice } from '$lib/types';
-import { manapoolFetch } from '$lib/server/manapool/client';
+import { json, type RequestEvent } from "@sveltejs/kit";
+import { manapoolFetch } from "$lib/server/manapool/client";
+import type { ManapoolCardPrice } from "$lib/types";
 
 interface CacheEntry {
 	data: ManapoolCardPrice;
@@ -33,7 +33,9 @@ export async function POST({ request }: RequestEvent) {
 	// Batch into groups of 100
 	for (let i = 0; i < uncached.length; i += 100) {
 		const batch = uncached.slice(i, i + 100);
-		const params = batch.map((id) => `scryfall_ids=${encodeURIComponent(id)}`).join('&');
+		const params = batch
+			.map((id) => `scryfall_ids=${encodeURIComponent(id)}`)
+			.join("&");
 
 		try {
 			console.log(`[prices] fetching ${batch.length} cards from Manapool`);
@@ -45,7 +47,9 @@ export async function POST({ request }: RequestEvent) {
 			}
 
 			const products = await res.json();
-			for (const product of Array.isArray(products) ? products : (products.data ?? [])) {
+			for (const product of Array.isArray(products)
+				? products
+				: (products.data ?? [])) {
 				const scryfallId = product.scryfall_id;
 				if (!scryfallId) continue;
 
@@ -54,16 +58,18 @@ export async function POST({ request }: RequestEvent) {
 					priceCentsNm: product.price_cents_nm ?? null,
 					priceMarket: product.price_market ?? null,
 					availableQty: product.available_quantity ?? 0,
-					url: product.url ?? `https://manapool.com/products/${product.scryfall_id}`
+					url:
+						product.url ??
+						`https://manapool.com/products/${product.scryfall_id}`,
 				};
 
 				result[scryfallId] = price;
 				cache.set(scryfallId, { data: price, expiresAt: now + CACHE_TTL });
 			}
 		} catch (err) {
-			console.error('[prices] Manapool fetch failed:', err);
+			console.error("[prices] Manapool fetch failed:", err);
 		}
 	}
 
 	return json(result);
-};
+}

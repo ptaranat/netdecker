@@ -1,7 +1,7 @@
-import * as cheerio from 'cheerio';
-import { fetchPage } from './fetch';
+import * as cheerio from "cheerio";
+import { fetchPage } from "./fetch";
 
-const BASE_URL = 'https://mtgdecks.net';
+const BASE_URL = "https://mtgdecks.net";
 const TOURNAMENTS_URL = `${BASE_URL}/Standard/tournaments`;
 const MAX_PAGES = 5;
 
@@ -39,12 +39,12 @@ export async function fetchMajorTournaments(count = 3): Promise<Tournament[]> {
 
 export function parseTournaments(html: string): Tournament[] {
 	const $ = cheerio.load(html);
-	const rows = $('table tbody tr');
+	const rows = $("table tbody tr");
 	const tournaments: Tournament[] = [];
 
 	for (const row of rows) {
 		const $row = $(row);
-		const cells = $row.find('td');
+		const cells = $row.find("td");
 		if (cells.length < 5) continue;
 
 		// Skip MTGO and MTGA events
@@ -55,17 +55,17 @@ export function parseTournaments(html: string): Tournament[] {
 		if (eventLink.length === 0) continue;
 
 		const name = eventLink.text().trim();
-		const href = eventLink.attr('href') ?? '';
-		const url = href.startsWith('http') ? href : `${BASE_URL}${href}`;
+		const href = eventLink.attr("href") ?? "";
+		const url = href.startsWith("http") ? href : `${BASE_URL}${href}`;
 
 		const dateText = cells.eq(0).text().trim();
 		const playersText = cells.eq(3).text().trim();
-		const players = parseInt(playersText) || 0;
+		const players = parseInt(playersText, 10) || 0;
 
 		// Check event level: big star = font-size 16px in the level cell
-		const levelCell = cells.eq(4).html() ?? '';
+		const levelCell = cells.eq(4).html() ?? "";
 		const fontSizeMatch = levelCell.match(/font-size:\s*(\d+)px/);
-		const fontSize = fontSizeMatch ? parseInt(fontSizeMatch[1]) : 8;
+		const fontSize = fontSizeMatch ? parseInt(fontSizeMatch[1], 10) : 8;
 		const isBigStar = fontSize >= 16;
 		const stars = (levelCell.match(/glyphicon-star/g) ?? []).length;
 
@@ -80,7 +80,7 @@ export function parseTournaments(html: string): Tournament[] {
  */
 export async function fetchTopDeckUrls(
 	tournamentUrl: string,
-	count = 2
+	count = 2,
 ): Promise<string[]> {
 	const html = await fetchPage(tournamentUrl);
 	return parseTopDeckUrls(html, count);
@@ -92,9 +92,9 @@ export function parseTopDeckUrls(html: string, count = 2): string[] {
 
 	$('a[href*="decklist"]').each((_, el) => {
 		if (links.length >= count) return;
-		const href = $(el).attr('href') ?? '';
-		if (href.includes('decklist-by') || href.includes('decklist')) {
-			const url = href.startsWith('http') ? href : `${BASE_URL}${href}`;
+		const href = $(el).attr("href") ?? "";
+		if (href.includes("decklist-by") || href.includes("decklist")) {
+			const url = href.startsWith("http") ? href : `${BASE_URL}${href}`;
 			links.push(url);
 		}
 	});

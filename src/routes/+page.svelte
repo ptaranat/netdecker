@@ -1,334 +1,370 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { TournamentWithDecks, DeckEntry, TournamentEvent, ManapoolCardPrice } from '$lib/types';
+import { onMount } from "svelte";
+import type {
+	DeckEntry,
+	ManapoolCardPrice,
+	TournamentEvent,
+	TournamentWithDecks,
+} from "$lib/types";
 
-	interface FlatDeck extends DeckEntry {
-		tournament: TournamentEvent;
+interface FlatDeck extends DeckEntry {
+	tournament: TournamentEvent;
+}
+
+let { data } = $props();
+let tournaments = $state<TournamentWithDecks[]>([]);
+let loading = $state(true);
+let pricingDone = $state(false);
+let error = $state<string | null>(null);
+let loadingMsg = $state("");
+
+// Manapool live prices
+let manapoolPrices = $state<Record<string, ManapoolCardPrice>>({});
+let priceInterval: ReturnType<typeof setInterval> | null = null;
+
+// Flatten: all 1st place finishers first, then all 2nd place
+let flatDecks = $derived.by(() => {
+	const firsts: FlatDeck[] = [];
+	const seconds: FlatDeck[] = [];
+	for (const t of tournaments) {
+		const event: TournamentEvent = {
+			name: t.name,
+			url: t.url,
+			date: t.date,
+			players: t.players,
+		};
+		if (t.decks[0]) firsts.push({ ...t.decks[0], tournament: event });
+		if (t.decks[1]) seconds.push({ ...t.decks[1], tournament: event });
 	}
+	return [...firsts, ...seconds];
+});
 
-	let { data } = $props();
-	let tournaments = $state<TournamentWithDecks[]>([]);
-	let loading = $state(true);
-	let pricingDone = $state(false);
-	let error = $state<string | null>(null);
-	let loadingMsg = $state('');
+const LOADING_MESSAGES = [
+	"bolting the bird...",
+	"paying the one...",
+	"in response...",
+	"searching library...",
+	"cutting your deck...",
+	"destroying target permanent...",
+	"exiling all graveyards...",
+	"passing priority...",
+	"drawing for turn...",
+	"declaring blockers...",
+	"going to combat...",
+];
 
-	// Manapool live prices
-	let manapoolPrices = $state<Record<string, ManapoolCardPrice>>({});
-	let priceInterval: ReturnType<typeof setInterval> | null = null;
+const SPINNER = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+let spinIdx = $state(0);
+let msgTick = $state(0);
 
-	// Flatten: all 1st place finishers first, then all 2nd place
-	let flatDecks = $derived.by(() => {
-		const firsts: FlatDeck[] = [];
-		const seconds: FlatDeck[] = [];
-		for (const t of tournaments) {
-			const event: TournamentEvent = { name: t.name, url: t.url, date: t.date, players: t.players };
-			if (t.decks[0]) firsts.push({ ...t.decks[0], tournament: event });
-			if (t.decks[1]) seconds.push({ ...t.decks[1], tournament: event });
+let msgInterval: ReturnType<typeof setInterval>;
+let spinInterval: ReturnType<typeof setInterval>;
+
+function collectScryfallIds(): string[] {
+	const ids = new Set<string>();
+	for (const t of tournaments) {
+		for (const d of t.decks) {
+			for (const c of [...d.decklist.mainboard, ...d.decklist.sideboard]) {
+				if (c.scryfallId) ids.add(c.scryfallId);
+			}
 		}
-		return [...firsts, ...seconds];
-	});
+	}
+	return [...ids];
+}
 
-	const LOADING_MESSAGES = [
-		'bolting the bird...',
-		'paying the one...',
-		'in response...',
-		'searching library...',
-		'cutting your deck...',
-		'destroying target permanent...',
-		'exiling all graveyards...',
-		'passing priority...',
-		'drawing for turn...',
-		'declaring blockers...',
-		'going to combat...'
-	];
+async function fetchManapoolPrices() {
+	const scryfallIds = collectScryfallIds();
+	if (scryfallIds.length === 0) return;
 
-	const SPINNER = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
-	let spinIdx = $state(0);
-	let msgTick = $state(0);
+	try {
+		const res = await fetch("/api/prices", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ scryfallIds }),
+		});
+		if (!res.ok) return;
 
-	let msgInterval: ReturnType<typeof setInterval>;
-	let spinInterval: ReturnType<typeof setInterval>;
+		manapoolPrices = await res.json();
+	} catch {
+		// silent fail
+	}
+}
 
-	function collectScryfallIds(): string[] {
-		const ids = new Set<string>();
+function startPricePolling() {
+	if (priceInterval) return;
+	fetchManapoolPrices();
+	priceInterval = setInterval(fetchManapoolPrices, 5 * 60 * 1000);
+}
+
+function stopPricePolling() {
+	if (priceInterval) {
+		clearInterval(priceInterval);
+		priceInterval = null;
+	}
+}
+
+onMount(() => {
+	let msgIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
+	loadingMsg = LOADING_MESSAGES[msgIndex];
+	msgInterval = setInterval(() => {
+		msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
+		loadingMsg = LOADING_MESSAGES[msgIndex];
+		msgTick++;
+	}, 2000);
+	spinInterval = setInterval(() => {
+		spinIdx = (spinIdx + 1) % SPINNER.length;
+	}, 100);
+
+	const es = new EventSource("/api/metagame");
+
+	es.addEventListener("decks", (e) => {
+		tournaments = JSON.parse(e.data);
+		loading = false;
+		// Preload card images for instant hover
 		for (const t of tournaments) {
 			for (const d of t.decks) {
 				for (const c of [...d.decklist.mainboard, ...d.decklist.sideboard]) {
-					if (c.scryfallId) ids.add(c.scryfallId);
+					preloadImage(c.name);
 				}
 			}
 		}
-		return [...ids];
-	}
-
-	async function fetchManapoolPrices() {
-		const scryfallIds = collectScryfallIds();
-		if (scryfallIds.length === 0) return;
-
-		try {
-			const res = await fetch('/api/prices', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ scryfallIds })
-			});
-			if (!res.ok) return;
-
-			manapoolPrices = await res.json();
-		} catch {
-			// silent fail
-		}
-	}
-
-	function startPricePolling() {
-		if (priceInterval) return;
-		fetchManapoolPrices();
-		priceInterval = setInterval(fetchManapoolPrices, 5 * 60 * 1000);
-	}
-
-	function stopPricePolling() {
-		if (priceInterval) {
-			clearInterval(priceInterval);
-			priceInterval = null;
-		}
-	}
-
-	onMount(() => {
-		let msgIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
-		loadingMsg = LOADING_MESSAGES[msgIndex];
-		msgInterval = setInterval(() => {
-			msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
-			loadingMsg = LOADING_MESSAGES[msgIndex];
-			msgTick++;
-		}, 2000);
-		spinInterval = setInterval(() => {
-			spinIdx = (spinIdx + 1) % SPINNER.length;
-		}, 100);
-
-		const es = new EventSource('/api/metagame');
-
-		es.addEventListener('decks', (e) => {
-			tournaments = JSON.parse(e.data);
-			loading = false;
-			// Preload card images for instant hover
-			for (const t of tournaments) {
-				for (const d of t.decks) {
-					for (const c of [...d.decklist.mainboard, ...d.decklist.sideboard]) {
-						preloadImage(c.name);
-					}
-				}
-			}
-			// Fetch Manapool prices after decks load
-			startPricePolling();
-		});
-
-		es.addEventListener('price', (e) => {
-			const { tournamentIdx, deckIdx, optimizer } = JSON.parse(e.data);
-			// Trigger reactivity by reassigning the tournaments array
-			tournaments = tournaments.map((t, ti) => {
-				if (ti !== tournamentIdx) return t;
-				return {
-					...t,
-					decks: t.decks.map((d, di) => {
-						if (di !== deckIdx) return d;
-						return { ...d, optimizer };
-					})
-				};
-			});
-		});
-
-		es.addEventListener('done', () => {
-			pricingDone = true;
-			clearInterval(spinInterval);
-			clearInterval(msgInterval);
-			es.close();
-		});
-
-		es.addEventListener('error', () => {
-			error = 'Failed to load data. Please try again later.';
-			loading = false;
-			clearInterval(msgInterval);
-			clearInterval(spinInterval);
-			stopPricePolling();
-			es.close();
-		});
-
-		return () => {
-			stopPricePolling();
-		};
+		// Fetch Manapool prices after decks load
+		startPricePolling();
 	});
 
-	function formatPrice(price: number): string {
-		return `$${price.toFixed(2)}`;
-	}
+	es.addEventListener("price", (e) => {
+		const { tournamentIdx, deckIdx, optimizer } = JSON.parse(e.data);
+		// Trigger reactivity by reassigning the tournaments array
+		tournaments = tournaments.map((t, ti) => {
+			if (ti !== tournamentIdx) return t;
+			return {
+				...t,
+				decks: t.decks.map((d, di) => {
+					if (di !== deckIdx) return d;
+					return { ...d, optimizer };
+				}),
+			};
+		});
+	});
 
-	function formatCents(cents: number): string {
-		return `$${(cents / 100).toFixed(2)}`;
-	}
+	es.addEventListener("done", () => {
+		pricingDone = true;
+		clearInterval(spinInterval);
+		clearInterval(msgInterval);
+		es.close();
+	});
 
-	function decklistToText(deck: FlatDeck): string {
-		const lines = [
-			...deck.decklist.mainboard.map((c) => `${c.quantity} ${c.name}`),
-			'',
-			...deck.decklist.sideboard.map((c) => `${c.quantity} ${c.name}`)
-		];
-		return lines.join('\n');
-	}
+	es.addEventListener("error", () => {
+		error = "Failed to load data. Please try again later.";
+		loading = false;
+		clearInterval(msgInterval);
+		clearInterval(spinInterval);
+		stopPricePolling();
+		es.close();
+	});
 
-	let copiedIdx = $state<number | null>(null);
-
-	async function copyDecklist(deck: FlatDeck, idx: number) {
-		await navigator.clipboard.writeText(decklistToText(deck));
-		copiedIdx = idx;
-		setTimeout(() => { copiedIdx = null; }, 300);
-	}
-
-	let disclaimerPos = $state<{ x: number; y: number } | null>(null);
-
-	function showDisclaimer(e: MouseEvent) {
-		disclaimerPos = { x: e.clientX, y: e.clientY };
-	}
-
-	function hideDisclaimer() {
-		disclaimerPos = null;
-	}
-
-	let hoverCard = $state<string | null>(null);
-	let hoverCardId = $state<string | null>(null);
-	let hoverCardQty = $state(1);
-	let hoverCardScryfall = $state<number | null>(null);
-	let hoverPos = $state({ x: 0, y: 0 });
-	let showBack = $state(false);
-
-	const imageCache = new Set<string>();
-
-	function preloadImage(name: string) {
-		if (imageCache.has(name)) return;
-		imageCache.add(name);
-		const img = new Image();
-		img.src = scryfallImageUrl(name);
-		if (name.includes('//')) {
-			new Image().src = scryfallImageUrl(name, true);
-		}
-		if (name in NEO_BASICS) {
-			// Preload alt variant
-			const num = NEO_BASICS[name][1];
-			new Image().src = `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
-		}
-	}
-
-	function showCard(name: string, scryfallId: string | null, qty: number, scryfallUsd: number | null, e: MouseEvent) {
-		hoverCard = name;
-		hoverCardId = scryfallId;
-		hoverCardQty = qty;
-		hoverCardScryfall = scryfallUsd;
-		showBack = false;
-		hoverPos = { x: e.clientX, y: e.clientY };
-	}
-
-	function moveCard(e: MouseEvent) {
-		hoverPos = { x: e.clientX, y: e.clientY };
-	}
-
-	function hideCard() {
-		hoverCard = null;
-		hoverCardId = null;
-		showBack = false;
-	}
-
-	function handleClick(name: string, scryfallId: string | null, qty: number, scryfallUsd: number | null, e: MouseEvent) {
-		if (hoverCard !== name) {
-			showCard(name, scryfallId, qty, scryfallUsd, e);
-			return;
-		}
-		if (name in NEO_BASICS) {
-			basicAlt = !basicAlt;
-		} else if (name.includes('//')) {
-			showBack = !showBack;
-		}
-	}
-
-	// Kamigawa Neon Dynasty full art basics (Japanese)
-	const NEO_BASICS: Record<string, [string, string]> = {
-		Plains: ['293', '294'],
-		Island: ['295', '296'],
-		Swamp: ['297', '298'],
-		Mountain: ['299', '300'],
-		Forest: ['301', '302']
+	return () => {
+		stopPricePolling();
 	};
+});
 
-	let basicAlt = $state(false);
+function formatPrice(price: number): string {
+	return `$${price.toFixed(2)}`;
+}
 
-	function scryfallImageUrl(name: string, back = false): string {
-		const neo = NEO_BASICS[name];
-		if (neo) {
-			const num = basicAlt ? neo[1] : neo[0];
-			return `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
-		}
-		const face = back ? '&face=back' : '';
-		return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal${face}`;
+function formatCents(cents: number): string {
+	return `$${(cents / 100).toFixed(2)}`;
+}
+
+function decklistToText(deck: FlatDeck): string {
+	const lines = [
+		...deck.decklist.mainboard.map((c) => `${c.quantity} ${c.name}`),
+		"",
+		...deck.decklist.sideboard.map((c) => `${c.quantity} ${c.name}`),
+	];
+	return lines.join("\n");
+}
+
+let copiedIdx = $state<number | null>(null);
+
+async function copyDecklist(deck: FlatDeck, idx: number) {
+	await navigator.clipboard.writeText(decklistToText(deck));
+	copiedIdx = idx;
+	setTimeout(() => {
+		copiedIdx = null;
+	}, 300);
+}
+
+let disclaimerPos = $state<{ x: number; y: number } | null>(null);
+
+function showDisclaimer(e: MouseEvent) {
+	disclaimerPos = { x: e.clientX, y: e.clientY };
+}
+
+function hideDisclaimer() {
+	disclaimerPos = null;
+}
+
+let hoverCard = $state<string | null>(null);
+let hoverCardId = $state<string | null>(null);
+let hoverCardQty = $state(1);
+let hoverCardScryfall = $state<number | null>(null);
+let hoverPos = $state({ x: 0, y: 0 });
+let showBack = $state(false);
+
+const imageCache = new Set<string>();
+
+function preloadImage(name: string) {
+	if (imageCache.has(name)) return;
+	imageCache.add(name);
+	const img = new Image();
+	img.src = scryfallImageUrl(name);
+	if (name.includes("//")) {
+		new Image().src = scryfallImageUrl(name, true);
 	}
-
-	function truncate(str: string, max = 50): string {
-		return str.length > max ? str.slice(0, max - 1) + '…' : str;
+	if (name in NEO_BASICS) {
+		// Preload alt variant
+		const num = NEO_BASICS[name][1];
+		new Image().src = `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
 	}
+}
 
-	function getCardPriceClass(scryfallId: string | null, scryfallUsd: number | null): string {
-		if (!scryfallId || scryfallUsd == null) return '';
+function showCard(
+	name: string,
+	scryfallId: string | null,
+	qty: number,
+	scryfallUsd: number | null,
+	e: MouseEvent,
+) {
+	hoverCard = name;
+	hoverCardId = scryfallId;
+	hoverCardQty = qty;
+	hoverCardScryfall = scryfallUsd;
+	showBack = false;
+	hoverPos = { x: e.clientX, y: e.clientY };
+}
+
+function moveCard(e: MouseEvent) {
+	hoverPos = { x: e.clientX, y: e.clientY };
+}
+
+function hideCard() {
+	hoverCard = null;
+	hoverCardId = null;
+	showBack = false;
+}
+
+function handleClick(
+	name: string,
+	scryfallId: string | null,
+	qty: number,
+	scryfallUsd: number | null,
+	e: MouseEvent,
+) {
+	if (hoverCard !== name) {
+		showCard(name, scryfallId, qty, scryfallUsd, e);
+		return;
+	}
+	if (name in NEO_BASICS) {
+		basicAlt = !basicAlt;
+	} else if (name.includes("//")) {
+		showBack = !showBack;
+	}
+}
+
+// Kamigawa Neon Dynasty full art basics (Japanese)
+const NEO_BASICS: Record<string, [string, string]> = {
+	Plains: ["293", "294"],
+	Island: ["295", "296"],
+	Swamp: ["297", "298"],
+	Mountain: ["299", "300"],
+	Forest: ["301", "302"],
+};
+
+let basicAlt = $state(false);
+
+function scryfallImageUrl(name: string, back = false): string {
+	const neo = NEO_BASICS[name];
+	if (neo) {
+		const num = basicAlt ? neo[1] : neo[0];
+		return `https://api.scryfall.com/cards/neo/${num}/ja?format=image&version=normal`;
+	}
+	const face = back ? "&face=back" : "";
+	return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal${face}`;
+}
+
+function truncate(str: string, max = 50): string {
+	return str.length > max ? `${str.slice(0, max - 1)}…` : str;
+}
+
+function getCardPriceClass(
+	scryfallId: string | null,
+	scryfallUsd: number | null,
+): string {
+	if (!scryfallId || scryfallUsd == null) return "";
+	const mp = manapoolPrices[scryfallId];
+	if (!mp) return "";
+	const mpCents = mp.priceCentsLow ?? mp.priceCentsNm ?? null;
+	if (mpCents == null) return "";
+	// Compare Manapool (cents) vs Scryfall (dollars)
+	if (mpCents / 100 < scryfallUsd) return "price-up";
+	if (mpCents / 100 > scryfallUsd) return "price-down";
+	return "";
+}
+
+function getDisplayPrice(
+	scryfallId: string | null,
+	fallbackUsd: number | null,
+	quantity: number,
+): string | null {
+	if (scryfallId && manapoolPrices[scryfallId]) {
 		const mp = manapoolPrices[scryfallId];
-		if (!mp) return '';
-		const mpCents = (mp.priceCentsLow ?? mp.priceCentsNm) ?? null;
-		if (mpCents == null) return '';
-		// Compare Manapool (cents) vs Scryfall (dollars)
-		if (mpCents / 100 < scryfallUsd) return 'price-up';
-		if (mpCents / 100 > scryfallUsd) return 'price-down';
-		return '';
+		const cents = mp.priceCentsLow ?? mp.priceCentsNm;
+		if (cents != null) return `$${((cents * quantity) / 100).toFixed(2)}`;
 	}
+	if (fallbackUsd != null) return `$${(fallbackUsd * quantity).toFixed(2)}`;
+	return null;
+}
 
-	function getDisplayPrice(scryfallId: string | null, fallbackUsd: number | null, quantity: number): string | null {
-		if (scryfallId && manapoolPrices[scryfallId]) {
-			const mp = manapoolPrices[scryfallId];
-			const cents = mp.priceCentsLow ?? mp.priceCentsNm;
-			if (cents != null) return `$${((cents * quantity) / 100).toFixed(2)}`;
+function deckTotals(deck: FlatDeck): {
+	scryfall: number | null;
+	manapool: number | null;
+} {
+	const cards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
+	let scryfall = 0;
+	let scryfallComplete = false;
+	let manapool = 0;
+	let manapoolComplete = false;
+
+	for (const c of cards) {
+		if (c.priceUsd != null) {
+			scryfall += c.priceUsd * c.quantity;
+			scryfallComplete = true;
 		}
-		if (fallbackUsd != null) return `$${(fallbackUsd * quantity).toFixed(2)}`;
-		return null;
-	}
-
-	function deckTotals(deck: FlatDeck): { scryfall: number | null; manapool: number | null } {
-		const cards = [...deck.decklist.mainboard, ...deck.decklist.sideboard];
-		let scryfall = 0;
-		let scryfallComplete = false;
-		let manapool = 0;
-		let manapoolComplete = false;
-
-		for (const c of cards) {
-			if (c.priceUsd != null) {
-				scryfall += c.priceUsd * c.quantity;
-				scryfallComplete = true;
-			}
-			if (c.scryfallId && manapoolPrices[c.scryfallId]) {
-				const cents = manapoolPrices[c.scryfallId].priceCentsLow ?? manapoolPrices[c.scryfallId].priceCentsNm;
-				if (cents != null) {
-					manapool += (cents * c.quantity) / 100;
-					manapoolComplete = true;
-				}
+		if (c.scryfallId && manapoolPrices[c.scryfallId]) {
+			const cents =
+				manapoolPrices[c.scryfallId].priceCentsLow ??
+				manapoolPrices[c.scryfallId].priceCentsNm;
+			if (cents != null) {
+				manapool += (cents * c.quantity) / 100;
+				manapoolComplete = true;
 			}
 		}
-
-		return {
-			scryfall: scryfallComplete ? scryfall : null,
-			manapool: manapoolComplete ? manapool : null
-		};
 	}
 
-	const ASCII_LOGO = [
-		'███    ██ ███████ ████████ ██████  ███████  ██████ ██   ██ ███████ ██████ ',
-		'████   ██ ██         ██    ██   ██ ██      ██      ██  ██  ██      ██   ██',
-		'██ ██  ██ █████      ██    ██   ██ █████   ██      █████   █████   ██████ ',
-		'██  ██ ██ ██         ██    ██   ██ ██      ██      ██  ██  ██      ██   ██',
-		'██   ████ ███████    ██    ██████  ███████  ██████ ██   ██ ███████ ██   ██'
-	].join('\n');
+	return {
+		scryfall: scryfallComplete ? scryfall : null,
+		manapool: manapoolComplete ? manapool : null,
+	};
+}
+
+const ASCII_LOGO = [
+	"███    ██ ███████ ████████ ██████  ███████  ██████ ██   ██ ███████ ██████ ",
+	"████   ██ ██         ██    ██   ██ ██      ██      ██  ██  ██      ██   ██",
+	"██ ██  ██ █████      ██    ██   ██ █████   ██      █████   █████   ██████ ",
+	"██  ██ ██ ██         ██    ██   ██ ██      ██      ██  ██  ██      ██   ██",
+	"██   ████ ███████    ██    ██████  ███████  ██████ ██   ██ ███████ ██   ██",
+].join("\n");
 </script>
 
 <svelte:head>

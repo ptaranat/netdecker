@@ -1,12 +1,16 @@
-import type { TournamentWithDecks, DeckEntry, OptimizerResult } from '$lib/types';
-import { allCards } from '$lib/types';
-import { getCached, setCache, getStale } from './cache';
-import { fetchMajorTournaments, fetchTopDeckUrls } from './scraper/tournaments';
-import { fetchDecklist } from './scraper/decklist';
-import { resolveCardNames } from './scraper/cardnames';
-import { optimizeDecklist } from './manapool/optimizer';
+import type {
+	DeckEntry,
+	OptimizerResult,
+	TournamentWithDecks,
+} from "$lib/types";
+import { allCards } from "$lib/types";
+import { getCached, getStale, setCache } from "./cache";
+import { optimizeDecklist } from "./manapool/optimizer";
+import { resolveCardNames } from "./scraper/cardnames";
+import { fetchDecklist } from "./scraper/decklist";
+import { fetchMajorTournaments, fetchTopDeckUrls } from "./scraper/tournaments";
 
-const CACHE_KEY = 'tournament-data';
+const CACHE_KEY = "tournament-data";
 const TOURNAMENT_COUNT = 3;
 const TOP_DECKS_PER_EVENT = 2;
 
@@ -20,28 +24,40 @@ function timer() {
 
 export interface PipelineCallbacks {
 	onDecks: (tournaments: TournamentWithDecks[]) => void;
-	onPrice: (tournamentIdx: number, deckIdx: number, optimizer: OptimizerResult) => void;
+	onPrice: (
+		tournamentIdx: number,
+		deckIdx: number,
+		optimizer: OptimizerResult,
+	) => void;
 	onDone: (tournaments: TournamentWithDecks[]) => void;
 }
 
 type BroadcastFn = (cb: PipelineCallbacks) => void;
 
 function safeSend(cb: PipelineCallbacks, fn: BroadcastFn) {
-	try { fn(cb); } catch { /* stream may be closed */ }
+	try {
+		fn(cb);
+	} catch {
+		/* stream may be closed */
+	}
 }
 
-export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<void> {
+export async function getMetagameDataStreaming(
+	cb: PipelineCallbacks,
+): Promise<void> {
 	const cached = getCached<TournamentWithDecks[]>(CACHE_KEY);
 	if (cached) {
-		const complete = cached.every((t) => t.decks.every((d) => d.optimizer !== null));
+		const complete = cached.every((t) =>
+			t.decks.every((d) => d.optimizer !== null),
+		);
 		if (complete) {
-			console.log('[pipeline] cache hit (complete)');
+			console.log("[pipeline] cache hit (complete)");
 			cb.onDecks(cached);
 			cb.onDone(cached);
 			return;
 		}
 
-		console.log('[pipeline] cache hit (no prices), optimizing...');
+		console.log("[pipeline] cache hit (no prices), optimizing...");
 		cb.onDecks(cached);
 
 		if (activeBuild) {
@@ -50,13 +66,17 @@ export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<v
 			replayCompleted(cb, cached);
 		} else {
 			activeBuild = runOptimization(cached, [cb]);
-			try { await activeBuild; } finally { activeBuild = null; }
+			try {
+				await activeBuild;
+			} finally {
+				activeBuild = null;
+			}
 		}
 		return;
 	}
 
 	if (activeBuild) {
-		console.log('[pipeline] build in progress, waiting...');
+		console.log("[pipeline] build in progress, waiting...");
 		pendingCallbacks.push(cb);
 		await activeBuild;
 		replayCompleted(cb, getCached<TournamentWithDecks[]>(CACHE_KEY));
@@ -64,10 +84,17 @@ export async function getMetagameDataStreaming(cb: PipelineCallbacks): Promise<v
 	}
 
 	activeBuild = runPipeline(cb);
-	try { await activeBuild; } finally { activeBuild = null; }
+	try {
+		await activeBuild;
+	} finally {
+		activeBuild = null;
+	}
 }
 
-function replayCompleted(cb: PipelineCallbacks, cached: TournamentWithDecks[] | null) {
+function replayCompleted(
+	cb: PipelineCallbacks,
+	cached: TournamentWithDecks[] | null,
+) {
 	if (!cached) return;
 	safeSend(cb, (c) => c.onDecks(cached));
 	for (let ti = 0; ti < cached.length; ti++) {
@@ -90,14 +117,21 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 	try {
 		let elapsed = timer();
 		const tournaments = await fetchMajorTournaments(TOURNAMENT_COUNT);
-		console.log(`[pipeline] found ${tournaments.length} tournaments: ${elapsed()}`);
+		console.log(
+			`[pipeline] found ${tournaments.length} tournaments: ${elapsed()}`,
+		);
 
 		const results: TournamentWithDecks[] = [];
 
 		for (const tournament of tournaments) {
 			elapsed = timer();
-			const deckUrls = await fetchTopDeckUrls(tournament.url, TOP_DECKS_PER_EVENT);
-			console.log(`[${tournament.name}] ${deckUrls.length} decks: ${elapsed()}`);
+			const deckUrls = await fetchTopDeckUrls(
+				tournament.url,
+				TOP_DECKS_PER_EVENT,
+			);
+			console.log(
+				`[${tournament.name}] ${deckUrls.length} decks: ${elapsed()}`,
+			);
 
 			const decks: DeckEntry[] = [];
 			for (const url of deckUrls) {
@@ -108,7 +142,9 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 					const resolved = await resolveCardNames(allCards(decklist));
 					decklist.mainboard = resolved.slice(0, mbCount);
 					decklist.sideboard = resolved.slice(mbCount);
-					console.log(`[${tournament.name}] ${decklist.placement} ${decklist.player}: ${elapsed()}`);
+					console.log(
+						`[${tournament.name}] ${decklist.placement} ${decklist.player}: ${elapsed()}`,
+					);
 					decks.push({ decklist, optimizer: null });
 				} catch (err) {
 					console.error(`[${tournament.name}] deck failed ${url}:`, err);
@@ -120,7 +156,7 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 				url: tournament.url,
 				date: tournament.date,
 				players: tournament.players,
-				decks
+				decks,
 			});
 		}
 
@@ -131,7 +167,7 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 
 		console.log(`[pipeline] total: ${total()}`);
 	} catch (err) {
-		console.error('Pipeline failed:', err);
+		console.error("Pipeline failed:", err);
 		const stale = getStale<TournamentWithDecks[]>(CACHE_KEY);
 		if (stale) {
 			broadcast((c) => c.onDecks(stale));
@@ -145,11 +181,13 @@ async function runPipeline(cb: PipelineCallbacks): Promise<void> {
 async function runOptimization(
 	results: TournamentWithDecks[],
 	callbacks: PipelineCallbacks[],
-	broadcast?: (fn: BroadcastFn) => void
+	broadcast?: (fn: BroadcastFn) => void,
 ): Promise<void> {
-	const send = broadcast ?? ((fn: BroadcastFn) => {
-		for (const c of callbacks) safeSend(c, fn);
-	});
+	const send =
+		broadcast ??
+		((fn: BroadcastFn) => {
+			for (const c of callbacks) safeSend(c, fn);
+		});
 
 	const promises: Promise<void>[] = [];
 
@@ -174,7 +212,7 @@ async function optimizeSingleDeck(
 	ti: number,
 	di: number,
 	label: string,
-	broadcast: (fn: BroadcastFn) => void
+	broadcast: (fn: BroadcastFn) => void,
 ): Promise<void> {
 	const elapsed = timer();
 	try {

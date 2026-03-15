@@ -1,10 +1,10 @@
-import type { Card } from '$lib/types';
+import type { Card } from "$lib/types";
 
-const SCRYFALL_COLLECTION_URL = 'https://api.scryfall.com/cards/collection';
-const SCRYFALL_FUZZY_URL = 'https://api.scryfall.com/cards/named';
+const SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection";
+const SCRYFALL_FUZZY_URL = "https://api.scryfall.com/cards/named";
 const SCRYFALL_HEADERS = {
-	'User-Agent': 'Netdecker/1.0 (netdecker.app)',
-	Accept: 'application/json'
+	"User-Agent": "Netdecker/1.0 (netdecker.app)",
+	Accept: "application/json",
 };
 
 interface CardInfo {
@@ -30,7 +30,7 @@ export async function resolveCardNames(cards: Card[]): Promise<Card[]> {
 			...c,
 			name: info?.name ?? c.name,
 			priceUsd: info?.priceUsd ?? null,
-			scryfallId: info?.scryfallId ?? null
+			scryfallId: info?.scryfallId ?? null,
 		};
 	});
 }
@@ -44,9 +44,9 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 
 		try {
 			const res = await fetch(SCRYFALL_COLLECTION_URL, {
-				method: 'POST',
-				headers: { ...SCRYFALL_HEADERS, 'Content-Type': 'application/json' },
-				body: JSON.stringify({ identifiers })
+				method: "POST",
+				headers: { ...SCRYFALL_HEADERS, "Content-Type": "application/json" },
+				body: JSON.stringify({ identifiers }),
 			});
 
 			if (!res.ok) {
@@ -57,12 +57,16 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 			const data = await res.json();
 
 			for (const card of data.data ?? []) {
-				const inputName = batch.find(
-					(n) => card.name.toLowerCase().startsWith(n.toLowerCase())
+				const inputName = batch.find((n) =>
+					card.name.toLowerCase().startsWith(n.toLowerCase()),
 				);
 				if (inputName) {
 					const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
-					cardCache.set(inputName, { name: card.name, priceUsd: price, scryfallId: card.id ?? null });
+					cardCache.set(inputName, {
+						name: card.name,
+						priceUsd: price,
+						scryfallId: card.id ?? null,
+					});
 				}
 			}
 
@@ -70,7 +74,7 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 				notFound.push(nf.name);
 			}
 		} catch (err) {
-			console.error('Scryfall collection request failed:', err);
+			console.error("Scryfall collection request failed:", err);
 		}
 	}
 
@@ -78,12 +82,16 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 		try {
 			const res = await fetch(
 				`${SCRYFALL_FUZZY_URL}?fuzzy=${encodeURIComponent(name)}`,
-				{ headers: SCRYFALL_HEADERS }
+				{ headers: SCRYFALL_HEADERS },
 			);
 			if (res.ok) {
 				const card = await res.json();
 				const price = card.prices?.usd ? parseFloat(card.prices.usd) : null;
-				cardCache.set(name, { name: card.name ?? name, priceUsd: price, scryfallId: card.id ?? null });
+				cardCache.set(name, {
+					name: card.name ?? name,
+					priceUsd: price,
+					scryfallId: card.id ?? null,
+				});
 			} else {
 				cardCache.set(name, { name, priceUsd: null, scryfallId: null });
 			}
@@ -95,6 +103,9 @@ async function resolveFromScryfall(names: string[]): Promise<void> {
 
 	const resolutions = [...cardCache].filter(([k, v]) => k !== v.name);
 	if (resolutions.length > 0) {
-		console.log('Card name resolutions:', Object.fromEntries(resolutions.map(([k, v]) => [k, v.name])));
+		console.log(
+			"Card name resolutions:",
+			Object.fromEntries(resolutions.map(([k, v]) => [k, v.name])),
+		);
 	}
 }

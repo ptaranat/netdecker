@@ -1,8 +1,8 @@
-import type { Card, OptimizerResult } from '$lib/types';
-import { manapoolFetch } from './client';
+import type { Card, OptimizerResult } from "$lib/types";
+import { manapoolFetch } from "./client";
 
 interface OptimizerCartItem {
-	type: 'mtg_single';
+	type: "mtg_single";
 	name: string;
 	quantity_requested: number;
 	language_ids: string[];
@@ -16,9 +16,9 @@ interface UnavailableItem {
 }
 
 const MAX_RETRIES = 3;
-const LANGUAGE_IDS = ['EN'];
-const FINISH_IDS = ['NF'];
-const CONDITION_IDS = ['NM', 'LP', 'MP', 'HP'];
+const LANGUAGE_IDS = ["EN"];
+const FINISH_IDS = ["NF"];
+const CONDITION_IDS = ["NM", "LP", "MP", "HP"];
 
 interface OptimizerResponse {
 	totals: {
@@ -33,7 +33,7 @@ interface OptimizerResponse {
 
 export async function optimizeDecklist(
 	cards: Card[],
-	model: 'balanced' | 'lowest_price' | 'fewest_packages' = 'balanced'
+	model: "balanced" | "lowest_price" | "fewest_packages" = "balanced",
 ): Promise<OptimizerResult | null> {
 	let currentCards = cards;
 	const unavailableCards: string[] = [];
@@ -42,18 +42,18 @@ export async function optimizeDecklist(
 		if (currentCards.length === 0) return null;
 
 		const cart: OptimizerCartItem[] = currentCards.map((card) => ({
-			type: 'mtg_single',
+			type: "mtg_single",
 			name: card.name,
 			quantity_requested: card.quantity,
 			language_ids: LANGUAGE_IDS,
 			finish_ids: FINISH_IDS,
-			condition_ids: CONDITION_IDS
+			condition_ids: CONDITION_IDS,
 		}));
 
 		try {
-			const res = await manapoolFetch('/buyer/optimizer', {
-				method: 'POST',
-				body: JSON.stringify({ cart, model, destination_country: 'US' })
+			const res = await manapoolFetch("/buyer/optimizer", {
+				method: "POST",
+				body: JSON.stringify({ cart, model, destination_country: "US" }),
 			});
 
 			const buf = await res.arrayBuffer();
@@ -62,14 +62,17 @@ export async function optimizeDecklist(
 			if (res.ok) {
 				// API returns NDJSON — streaming progressively better solutions.
 				// Take the 2nd result (near-optimal, fast) or 1st if only one.
-				const lines = text.trim().split('\n').filter((l) => l.trim());
+				const lines = text
+					.trim()
+					.split("\n")
+					.filter((l) => l.trim());
 				const lastLine = lines.length >= 2 ? lines[1] : lines[0];
 
 				let parsed: OptimizerResponse;
 				try {
 					parsed = JSON.parse(lastLine);
 				} catch {
-					console.error('Failed to parse optimizer response');
+					console.error("Failed to parse optimizer response");
 					return null;
 				}
 
@@ -78,7 +81,7 @@ export async function optimizeDecklist(
 					sellerCount: parsed.totals.seller_count,
 					packageCount: parsed.totals.seller_count,
 					cartUrl: null,
-					unavailableCards
+					unavailableCards,
 				};
 			}
 
@@ -87,7 +90,7 @@ export async function optimizeDecklist(
 				try {
 					errorData = JSON.parse(text);
 				} catch {
-					console.error('Failed to parse 409 response');
+					console.error("Failed to parse 409 response");
 					return null;
 				}
 
@@ -104,7 +107,7 @@ export async function optimizeDecklist(
 			console.error(`Manapool optimizer error: ${res.status}`);
 			return null;
 		} catch (err) {
-			console.error('Manapool optimizer failed:', err);
+			console.error("Manapool optimizer failed:", err);
 			return null;
 		}
 	}
