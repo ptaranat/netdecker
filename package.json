@@ -8,7 +8,9 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "husky",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"lint": "biome check src/",
+		"format": "biome check --write src/",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && biome check src/",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
