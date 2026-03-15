@@ -332,7 +332,7 @@
 </script>
 
 <svelte:head>
-	<title>netdecker — top standard decks</title>
+	<title>netdecker - top standard decks</title>
 	<meta name="description" content="Top Standard decks from major tournaments with Manapool-optimized pricing" />
 </svelte:head>
 
@@ -340,8 +340,7 @@
 	<div class="grid">
 		<header>
 			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">netdecker.app — top standard decks</div>
-			<div class="legend">get <span class="legend-green" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
+			<div class="tagline">netdeck responsibly - get <span class="legend-green" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better*</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
 		</header>
 	</div>
 
@@ -457,16 +456,24 @@
 
 	{#if disclaimerPos}
 		<div class="tooltip" style="left: {disclaimerPos.x}px; top: {disclaimerPos.y + 20}px;">
-			vs scryfall prices<br />(TCGplayer / Cardmarket)
+			vs TCGplayer/Cardmarket
 		</div>
 	{/if}
 
 	<footer class="grid footer">
-		<div>netdeck responsibly — &copy; <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="credits-link">script wizards</a></div>
 		<div class="credits">
 			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
 			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
 			 / cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
+		</div>
+		<div class="credits">
+			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
+			 (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
+		</div>
+		<div class="disclaimer">
+			netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener">Fan Content Policy</a>.
+			Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast.
+			&copy; Wizards of the Coast LLC. Not affiliated with Manapool, MTGDecks, or Scryfall.
 		</div>
 	</footer>
 </div>
@@ -836,6 +843,21 @@
 	.credits-link {
 		color: var(--text-muted);
 		text-decoration: none;
+	}
+
+	.disclaimer {
+		margin-top: 0.5lh;
+		font-size: 11px;
+		color: var(--text-dim);
+	}
+
+	.disclaimer a {
+		color: var(--text-muted);
+		text-decoration: none;
+	}
+
+	.disclaimer a:hover {
+		color: var(--accent);
 	}
 
 	@media (min-width: 1400px) {
