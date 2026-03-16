@@ -512,7 +512,7 @@ const ASCII_LOGO = [
 
 	{#if hoverCard}
 		<div class="card-preview" style="left: {hoverPos.x + 16}px; top: {hoverPos.y - 100}px;">
-			<img src={scryfallImageUrl(hoverCard, showBack)} alt={hoverCard} width="210" height="293" />
+			<img src={scryfallImageUrl(hoverCard, showBack)} alt={hoverCard} width="280" height="391" />
 			{#if hoverCard.includes('//') || hoverCard in NEO_BASICS}
 				<div class="flip-hint">click name to flip</div>
 			{/if}
