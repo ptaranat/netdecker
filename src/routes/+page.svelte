@@ -798,7 +798,6 @@ const ASCII_LOGO = [
 
 	.price-scryfall {
 		color: var(--text-dim);
-		text-decoration: line-through;
 	}
 
 	.price-arrow {
