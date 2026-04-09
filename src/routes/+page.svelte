@@ -552,17 +552,11 @@ const ASCII_LOGO = [
 	{/if}
 
 	<footer>
-		made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
-		(<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
-		<br />
-		data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
-		/ prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
-		/ cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
-		<div class="disclaimer">
-			netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener">Fan Content Policy</a>.
-			Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast.
-			&copy; Wizards of the Coast LLC. Not affiliated with Manapool, MTGDecks, or Scryfall.
-		</div>
+		<Card title="CREDITS" mode="left">
+			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="link">script wizards</a> (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener" class="link">github</a>)<br />
+			<span style="opacity: 0.5">data <a href="https://mtgdecks.net" target="_blank" rel="noopener" class="link">mtgdecks</a> / prices <a href="https://manapool.com" target="_blank" rel="noopener" class="link">manapool</a> / cards <a href="https://scryfall.com" target="_blank" rel="noopener" class="link">scryfall</a></span><br />
+			<span style="opacity: 0.5">netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener" class="link">Fan Content Policy</a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. &copy; Wizards of the Coast LLC.</span>
+		</Card>
 	</footer>
 </div>
 
@@ -628,7 +622,8 @@ const ASCII_LOGO = [
 	/* Card preview */
 	.card-preview {
 		position: fixed; z-index: 100; overflow: hidden; pointer-events: none;
-		box-shadow: inset 2px 0 0 0 #fff, inset -2px 0 0 0 #fff, inset 0 2px 0 0 #fff, inset 0 -2px 0 0 #fff;
+		outline: 2px solid #fff;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
 	}
 	.card-preview img { display: block; }
 	.flip-hint { text-align: center; opacity: 0.5; padding: 2px 0; background: #000; }
@@ -643,10 +638,7 @@ const ASCII_LOGO = [
 	}
 
 	/* Footer */
-	footer { text-align: center; opacity: 0.5; padding: 2lh 0; }
-	footer a { color: #fff; text-decoration: none; }
-	footer a:hover { color: var(--accent); }
-	.disclaimer { margin-top: 0.5lh; }
+	footer { padding: 2lh 0; }
 
 	/* Responsive */
 	@media (min-width: 1400px) {

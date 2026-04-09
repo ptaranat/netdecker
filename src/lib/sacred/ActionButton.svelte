@@ -31,8 +31,10 @@ let { hotkey, href, target, onclick, children }: Props = $props();
     cursor: pointer;
     flex-shrink: 0;
     font-weight: 400;
-    padding: 0 1ch;
+    padding: 0.1em 1ch;
     user-select: none;
+    display: inline-flex;
+    align-items: center;
   }
 
   .label {
@@ -41,9 +43,11 @@ let { hotkey, href, target, onclick, children }: Props = $props();
     cursor: pointer;
     flex-shrink: 0;
     font-weight: 400;
-    padding: 0 1ch;
+    padding: 0.1em 1ch;
     text-transform: uppercase;
     user-select: none;
+    display: inline-flex;
+    align-items: center;
   }
 
   .root {
@@ -58,6 +62,7 @@ let { hotkey, href, target, onclick, children }: Props = $props();
     box-sizing: border-box;
     font-family: var(--font-family-mono);
     font-size: var(--font-size);
+    line-height: var(--theme-line-height-base, 1.5);
     flex-shrink: 0;
     text-decoration: none;
     color: inherit;
@@ -73,6 +78,8 @@ let { hotkey, href, target, onclick, children }: Props = $props();
   .root:hover .label,
   .root:focus .label,
   .root:active .label {
+    background: var(--theme-focused-foreground);
+    color: var(--theme-background, #000);
     box-shadow: inset 0 0 0 2px var(--theme-focused-foreground);
   }
 </style>

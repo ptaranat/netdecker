@@ -15,7 +15,8 @@ let { children, style }: Props = $props();
 
 <style>
   .badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     vertical-align: top;
     text-align: center;
     font-weight: 400;
@@ -23,7 +24,6 @@ let { children, style }: Props = $props();
     outline: 0;
     border: 0;
     font-family: var(--font-family-mono);
-    min-height: calc(var(--theme-line-height-base) * var(--font-size));
     text-transform: uppercase;
     background: var(--theme-button-background, #3a3a3a);
     padding: 0 1ch;
