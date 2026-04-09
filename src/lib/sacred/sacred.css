@@ -1,0 +1,20 @@
+/* Sacred design system — scoped to .sacred-root */
+
+.sacred-root {
+	--font-family-mono:
+		"Share Tech Mono", "GeistMono-Regular", "JetBrains Mono", monospace;
+	--font-size: 15px;
+	--theme-line-height-base: 1.5;
+	--theme-text: #ffffff;
+	--theme-background: #1a1a1a;
+	--theme-button-foreground: #262626;
+	--theme-button-background: #3a3a3a;
+	--theme-focused-foreground: #e8a349;
+
+	font-family: var(--font-family-mono);
+	font-size: var(--font-size);
+	line-height: var(--theme-line-height-base);
+	color: var(--theme-text);
+	background: var(--theme-background);
+	font-variant-numeric: tabular-nums lining-nums;
+}
