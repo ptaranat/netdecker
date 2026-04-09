@@ -554,7 +554,7 @@ const ASCII_LOGO = [
 	<footer>
 		<Card title="CREDITS" mode="left">
 			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener" class="link">script wizards</a> (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener" class="link">github</a>)<br />
-			<span style="opacity: 0.5">data <a href="https://mtgdecks.net" target="_blank" rel="noopener" class="link">mtgdecks</a> / prices <a href="https://manapool.com" target="_blank" rel="noopener" class="link">manapool</a> / cards <a href="https://scryfall.com" target="_blank" rel="noopener" class="link">scryfall</a></span><br />
+			data <a href="https://mtgdecks.net" target="_blank" rel="noopener" class="link">mtgdecks</a> / prices <a href="https://manapool.com" target="_blank" rel="noopener" class="link">manapool</a> / cards <a href="https://scryfall.com" target="_blank" rel="noopener" class="link">scryfall</a><br />
 			<span style="opacity: 0.5">netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener" class="link">Fan Content Policy</a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. &copy; Wizards of the Coast LLC.</span>
 		</Card>
 	</footer>
@@ -568,7 +568,7 @@ const ASCII_LOGO = [
 		--green: #5cb85c;
 		--red: #cc5544;
 
-		background: #000;
+		background: #1a1a1a;
 		color: #fff;
 		font-family: 'Share Tech Mono', 'GeistMono-Regular', 'JetBrains Mono', monospace;
 		font-size: 15px;
@@ -633,7 +633,7 @@ const ASCII_LOGO = [
 	/* Tooltips */
 	.tooltip {
 		position: fixed; z-index: 100; pointer-events: none; text-align: center;
-		background: #000; padding: 2px 1ch;
+		background: #1a1a1a; padding: 2px 1ch;
 		box-shadow: inset 2px 0 0 0 #fff, inset -2px 0 0 0 #fff, inset 0 2px 0 0 #fff, inset 0 -2px 0 0 #fff;
 	}
 
