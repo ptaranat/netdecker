@@ -6,6 +6,10 @@ import type {
 	TournamentEvent,
 	TournamentWithDecks,
 } from "$lib/types";
+import "$lib/sacred/sacred.css";
+import ActionButton from "$lib/sacred/ActionButton.svelte";
+import Badge from "$lib/sacred/Badge.svelte";
+import Card from "$lib/sacred/Card.svelte";
 
 interface FlatDeck extends DeckEntry {
 	tournament: TournamentEvent;
@@ -422,22 +426,23 @@ const ASCII_LOGO = [
 <svelte:head>
 	<title>netdecker - top standard decks</title>
 	<meta name="description" content="Top Standard decks from major tournaments with Manapool-optimized pricing" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
 </svelte:head>
 
-<div class="page">
-	<div class="grid">
-		<header>
-			<pre class="logo">{ASCII_LOGO}</pre>
-			<div class="tagline">netdeck responsibly - get <span class="legend-green" role="note" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better*</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="legend-link">manapool</a></div>
-		</header>
-	</div>
+<div class="page sacred-root">
+	<header>
+		<pre class="logo">{ASCII_LOGO}</pre>
+		<div class="tagline">netdeck responsibly - get <span class="green" role="note" onmouseenter={(e) => showDisclaimer(e)} onmousemove={(e) => showDisclaimer(e)} onmouseleave={hideDisclaimer}>better*</span> prices on <a href="https://manapool.com" target="_blank" rel="noopener" class="link">manapool</a></div>
+	</header>
 
 	{#if error}
-		<div class="grid error">{error}</div>
+		<div class="status" style="color: var(--red)">{error}</div>
 	{/if}
 
 	{#if loading}
-		<div class="grid loading">
+		<div class="status" style="color: var(--accent)">
 			<span class="spinner">{SPINNER[spinIdx]}</span> {loadingMsg}
 		</div>
 	{/if}
@@ -445,20 +450,15 @@ const ASCII_LOGO = [
 	<div class="deck-list">
 	{#each flatDecks as deck, deckIndex}
 		{@const totals = deckTotals(deck)}
-		<section class="archetype-card">
-			<div class="card-title">
-				<span class="deck-placement">{deck.decklist.placement}</span>
-				<a href={deck.decklist.url} target="_blank" rel="noopener" class="deck-archetype">{deck.decklist.archetype}</a>
-				<span class="deck-player">{deck.decklist.player}</span>
-			</div>
-			<div class="card-body">
-				<div class="deck-event">
-					{deck.tournament.name}  {deck.tournament.players} players  {deck.tournament.date}
-				</div>
+		<div class="deck-wrapper">
+			<Card title={deck.decklist.archetype.toUpperCase()} mode="left">
+				<Badge>{deck.decklist.placement}</Badge>
+				{'  '}{deck.decklist.player}
+				{'  '}<span style="opacity: 0.5">{deck.tournament.name}  {deck.tournament.players} players  {deck.tournament.date}</span>
 
 				<div class="deck-grid">
 					<div class="deck-col">
-						<div class="deck-title">MAINBOARD ({deck.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)})</div>
+						<div class="section-label"><Badge>MAINBOARD ({deck.decklist.mainboard.reduce((s, c) => s + c.quantity, 0)})</Badge></div>
 						{#each deck.decklist.mainboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
@@ -470,7 +470,7 @@ const ASCII_LOGO = [
 						{/each}
 					</div>
 					<div class="deck-col">
-						<div class="deck-title">SIDEBOARD ({deck.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)})</div>
+						<div class="section-label"><Badge>SIDEBOARD ({deck.decklist.sideboard.reduce((s, c) => s + c.quantity, 0)})</Badge></div>
 						{#each deck.decklist.sideboard as card}
 							<div class="card-row">
 								<span class="card-qty">{card.quantity}</span>
@@ -484,29 +484,29 @@ const ASCII_LOGO = [
 				</div>
 
 				<div class="pricing">
-					{#if totals.scryfall != null || totals.manapool != null}
-						<span class="price-compare">
+					<span class="price-compare">
+						{#if totals.scryfall != null || totals.manapool != null}
 							{#if totals.scryfall != null}
-								<span class="price-scryfall">{formatPrice(totals.scryfall)}</span>
+								<span style="opacity: 0.5">{formatPrice(totals.scryfall)}</span>
 							{/if}
 							{#if totals.scryfall != null && totals.manapool != null}
-								<span class="price-arrow">&gt;</span>
-								<span class={totals.manapool < totals.scryfall ? 'price-cheaper' : totals.manapool > totals.scryfall ? 'price-pricier' : 'price-same'}>{formatPrice(totals.manapool)}</span>
+								<span style="opacity: 0.5">→</span>
+								<span class={totals.manapool < totals.scryfall ? 'green' : totals.manapool > totals.scryfall ? 'red' : ''}>{formatPrice(totals.manapool)}</span>
 							{:else if totals.manapool != null}
-								<span class="price-same">{formatPrice(totals.manapool)}</span>
+								<span>{formatPrice(totals.manapool)}</span>
 							{/if}
-						</span>
-					{:else if !pricingDone}
-						{@const msgIdx = (msgTick + deckIndex * 3) % LOADING_MESSAGES.length}
-						<span class="price-loading"><span class="spinner">{SPINNER[spinIdx]}</span> {LOADING_MESSAGES[msgIdx]}</span>
-					{:else}
-						<span class="price-na">pricing unavailable</span>
-					{/if}
-					<button class="deck-action" onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'copied!' : 'copy decklist'}</button>
-					<a class="deck-action" href="https://manapool.com/add-deck" target="_blank" rel="noopener">buy on manapool</a>
+						{:else if !pricingDone}
+							{@const msgIdx = (msgTick + deckIndex * 3) % LOADING_MESSAGES.length}
+							<span style="color: var(--accent)"><span class="spinner">{SPINNER[spinIdx]}</span> {LOADING_MESSAGES[msgIdx]}</span>
+						{:else}
+							<span style="opacity: 0.5">pricing unavailable</span>
+						{/if}
+					</span>
+					<ActionButton onclick={() => copyDecklist(deck, deckIndex)}>{copiedIdx === deckIndex ? 'COPIED!' : 'COPY'}</ActionButton>
+					<ActionButton href="https://manapool.com/add-deck" target="_blank">BUY</ActionButton>
 				</div>
-			</div>
-		</section>
+			</Card>
+		</div>
 	{/each}
 	</div>
 
@@ -514,26 +514,26 @@ const ASCII_LOGO = [
 		<div class="card-preview" style="left: {hoverPos.x + 16}px; top: {hoverPos.y - 100}px;">
 			<img src={scryfallImageUrl(hoverCard, showBack)} alt={hoverCard} width="280" height="391" />
 			{#if hoverCard.includes('//') || hoverCard in NEO_BASICS}
-				<div class="flip-hint">click name to flip</div>
+				<div class="flip-hint">click to flip</div>
 			{/if}
 			{#if hoverCardId && manapoolPrices[hoverCardId]}
 				{@const mp = manapoolPrices[hoverCardId]}
 				{@const unitCents = mp.priceCentsLow ?? mp.priceCentsNm}
 				<div class="price-details">
 					{#if unitCents != null}
-						<div class="price-row"><span class="price-label">low</span> <span>{formatCents(unitCents)}</span></div>
+						<div class="price-row"><span style="opacity: 0.5">low</span> <span>{formatCents(unitCents)}</span></div>
 					{/if}
 					{#if mp.priceMarket != null}
-						<div class="price-row"><span class="price-label">market</span> <span>{formatCents(mp.priceMarket)}</span></div>
+						<div class="price-row"><span style="opacity: 0.5">market</span> <span>{formatCents(mp.priceMarket)}</span></div>
 					{/if}
 					{#if unitCents != null && hoverCardScryfall != null}
 						{@const deltaCents = unitCents - Math.round(hoverCardScryfall * 100)}
 						<div class="price-row">
-							<span class="price-label">vs scryfall</span>
-							<span class={deltaCents < 0 ? 'delta-cheaper' : deltaCents > 0 ? 'delta-pricier' : ''}>{deltaCents <= 0 ? '' : '+'}{formatCents(deltaCents)}</span>
+							<span style="opacity: 0.5">vs scryfall</span>
+							<span class={deltaCents < 0 ? 'green' : deltaCents > 0 ? 'red' : ''}>{deltaCents <= 0 ? '' : '+'}{formatCents(deltaCents)}</span>
 						</div>
 					{/if}
-					<div class="price-row"><span class="price-label">available</span> <span>{mp.availableQty}</span></div>
+					<div class="price-row"><span style="opacity: 0.5">available</span> <span>{mp.availableQty}</span></div>
 				</div>
 			{/if}
 		</div>
@@ -551,16 +551,13 @@ const ASCII_LOGO = [
 		</div>
 	{/if}
 
-	<footer class="grid footer">
-		<div class="credits">
-			made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
-			 (<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
-		</div>
-		<div class="credits">
-			data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
-			 / prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
-			 / cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
-		</div>
+	<footer>
+		made with &lt;3 by <a href="https://scriptwizards.org" target="_blank" rel="noopener">script wizards</a>
+		(<a href="https://github.com/ptaranat/netdecker" target="_blank" rel="noopener">github</a>)
+		<br />
+		data <a href="https://mtgdecks.net" target="_blank" rel="noopener">mtgdecks</a>
+		/ prices <a href="https://manapool.com" target="_blank" rel="noopener">manapool</a>
+		/ cards <a href="https://scryfall.com" target="_blank" rel="noopener">scryfall</a>
 		<div class="disclaimer">
 			netdecker is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener">Fan Content Policy</a>.
 			Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast.
@@ -570,427 +567,97 @@ const ASCII_LOGO = [
 </div>
 
 <style>
-	:global(*) {
-		border: 0;
-		box-sizing: border-box;
-		margin: 0;
-		padding: 0;
-	}
+	:global(*) { border: 0; box-sizing: border-box; margin: 0; padding: 0; }
 
 	:global(body) {
-		--bg: #1a1a1a;
-		--text: #f0ece4;
-		--text-muted: #bbb;
-		--text-dim: #999;
 		--accent: #e8a349;
-		--accent-hover: #f0b860;
 		--green: #5cb85c;
 		--red: #cc5544;
-		--border: #666;
-		--hover-bg: #222;
 
-		background: var(--bg);
-		color: var(--text);
-		font-family: 'GeistMono-Regular', 'JetBrains Mono', 'Courier New', monospace;
+		background: #000;
+		color: #fff;
+		font-family: 'Share Tech Mono', 'GeistMono-Regular', 'JetBrains Mono', monospace;
 		font-size: 15px;
 		line-height: 1.5;
 	}
 
-	.page {
-		max-width: 72ch;
-		margin: 0 auto;
-		width: 100%;
-	}
+	/* Utilities */
+	.green { color: var(--green); }
+	.red { color: var(--red); }
+	.link { color: var(--accent); text-decoration: none; }
+	.link:hover { color: #f0b860; }
+	.spinner { display: inline-block; width: 1ch; }
 
-	.deck-list {
-		display: flex;
-		flex-direction: column;
-	}
+	/* Layout */
+	.page { max-width: 72ch; margin: 0 auto; padding: 0 2ch; }
+	.status { padding: 0.5lh 0; }
 
-	.grid {
-		padding: 0.5em 2ch;
-	}
+	header { text-align: center; padding-top: 1lh; }
+	.logo { color: var(--accent); font-size: 10px; line-height: 1.0; overflow: hidden; }
+	.tagline { color: var(--accent); margin-top: 1lh; margin-bottom: 1lh; }
 
-	header {
-		text-align: center;
-		padding-top: 1lh;
-		padding-bottom: 0;
-	}
-
-	.logo {
-		color: var(--accent);
-		font-size: 10px;
-		line-height: 1.0;
-		overflow: hidden;
-	}
-
-	.tagline {
-		color: var(--accent);
-		margin-top: 1lh;
-	}
-
-	.legend {
-		color: var(--text-dim);
-		margin-top: 0.25lh;
-	}
-
-	.legend-green {
-		color: var(--green);
-	}
-
-	.legend-link {
-		color: var(--accent);
-		text-decoration: none;
-	}
-
-	.legend-link:hover {
-		color: var(--accent-hover);
-	}
-
-	.error {
-		color: var(--red);
-	}
-
-	.loading {
-		color: var(--accent);
-	}
-
-	.spinner {
-		display: inline-block;
-		width: 1ch;
-	}
-
-	.archetype-card {
-		margin: 0.5em 2ch;
-		display: flex;
-		flex-direction: column;
-		box-shadow:
-			inset 2px 0 0 0 var(--border),
-			inset -2px 0 0 0 var(--border),
-			inset 0 -2px 0 0 var(--border);
-	}
-
-	.card-title {
-		display: flex;
-		gap: 1ch;
-		align-items: baseline;
-		padding: 0.5lh 2ch;
-		box-shadow:
-			inset 2px 0 0 0 var(--border),
-			inset -2px 0 0 0 var(--border),
-			inset 0 2px 0 0 var(--border);
-	}
-
-	.card-body {
-		padding: 0 2ch 0.5lh 2ch;
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-	}
-
-	.deck-event {
-		color: var(--text-muted);
-	}
-
-	.deck-placement {
-		color: var(--text);
-		font-weight: 700;
-	}
-
-	.deck-archetype {
-		color: var(--accent);
-		text-decoration: none;
-		flex: 1;
-	}
-
-	.deck-archetype:hover {
-		color: var(--accent-hover);
-	}
-
-	.deck-player {
-		color: var(--text);
-	}
+	/* Deck list */
+	.deck-list { display: flex; flex-direction: column; }
+	.deck-wrapper { margin-top: 1lh; }
+	.section-label { margin-top: 0.5lh; }
 
 	.deck-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 0;
 		min-width: 0;
 		overflow: hidden;
 	}
 
-	.deck-col {
-		padding: 0;
-		min-width: 0;
-		overflow: hidden;
-	}
+	.deck-col { min-width: 0; overflow: hidden; }
+	.deck-col:first-child { padding-right: 2ch; }
+	.deck-col:last-child { padding-left: 2ch; }
 
-	.deck-col:first-child {
-		padding-right: 2ch;
-	}
+	/* Card rows */
+	.card-row { display: flex; gap: 1ch; }
+	.card-row:hover { background: #111; }
+	.card-qty { width: 2ch; text-align: right; flex-shrink: 0; }
+	.card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+	.card-price { margin-left: auto; opacity: 0.5; flex-shrink: 0; }
+	.card-price.price-up { color: var(--green); opacity: 1; }
+	.card-price.price-down { color: var(--red); opacity: 1; }
 
-	.deck-col:last-child {
-		padding-left: 2ch;
-	}
+	/* Pricing footer */
+	.pricing { margin-top: 0.5lh; display: flex; align-items: center; gap: 1ch; }
+	.price-compare { flex: 1; display: flex; gap: 1ch; }
 
-	.deck-title {
-		color: var(--text-muted);
-	}
-
-	.card-row {
-		display: flex;
-		gap: 1ch;
-	}
-
-	.card-row:hover {
-		background: var(--hover-bg);
-		color: #fff;
-	}
-
-	.card-qty {
-		width: 2ch;
-		text-align: right;
-		flex-shrink: 0;
-		color: var(--text-muted);
-	}
-
-	.card-name {
-		color: var(--text);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		cursor: pointer;
-	}
-
-	.card-price {
-		margin-left: auto;
-		color: var(--text-dim);
-		flex-shrink: 0;
-		transition: color 0.3s ease;
-	}
-
-	.card-price.price-up {
-		color: var(--green);
-	}
-
-	.card-price.price-down {
-		color: var(--red);
-	}
-
-	.card-row:hover .card-qty {
-		color: var(--text);
-	}
-
-	.pricing {
-		margin-top: auto;
-		padding-top: 0.25lh;
-		display: flex;
-		align-items: baseline;
-		gap: 2ch;
-	}
-
-	.price-compare {
-		flex: 1;
-		display: flex;
-		gap: 1ch;
-		align-items: baseline;
-	}
-
-	.price-scryfall {
-		color: var(--text-dim);
-	}
-
-	.price-arrow {
-		color: var(--text-dim);
-	}
-
-	.price-cheaper {
-		color: var(--green);
-	}
-
-	.price-pricier {
-		color: var(--red);
-	}
-
-	.price-same {
-		color: var(--text);
-	}
-
-	.price-amount {
-		color: var(--green);
-		flex: 1;
-	}
-
-	.price-warn {
-		color: var(--text-dim);
-		flex: 1;
-	}
-
-	.price-loading {
-		color: var(--accent);
-		flex: 1;
-	}
-
-	.price-na {
-		flex: 1;
-		color: var(--text-dim);
-	}
-
-	.deck-action {
-		background: none;
-		color: var(--accent);
-		font-family: inherit;
-		font-size: inherit;
-		cursor: pointer;
-		text-decoration: none;
-	}
-
-	.deck-action:hover {
-		color: var(--accent-hover);
-	}
-
+	/* Card preview */
 	.card-preview {
-		position: fixed;
-		z-index: 100;
-		overflow: hidden;
-		border: 2px solid var(--border);
-		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-		pointer-events: none;
+		position: fixed; z-index: 100; overflow: hidden; pointer-events: none;
+		box-shadow: inset 2px 0 0 0 #fff, inset -2px 0 0 0 #fff, inset 0 2px 0 0 #fff, inset 0 -2px 0 0 #fff;
 	}
+	.card-preview img { display: block; }
+	.flip-hint { text-align: center; opacity: 0.5; padding: 2px 0; background: #000; }
+	.price-details { background: #000; padding: 4px 1ch; }
+	.price-row { display: flex; justify-content: space-between; gap: 2ch; }
 
-	.card-preview img {
-		display: block;
-	}
-
-	.flip-hint {
-		text-align: center;
-		color: var(--text-muted);
-		font-size: 12px;
-		padding: 2px 0;
-		background: var(--bg);
-	}
-
-	.price-details {
-		background: var(--bg);
-		padding: 4px 8px;
-		font-size: 12px;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.price-row {
-		display: flex;
-		justify-content: space-between;
-		gap: 2ch;
-	}
-
-	.price-label {
-		color: var(--text-dim);
-	}
-
+	/* Tooltips */
 	.tooltip {
-		position: fixed;
-		z-index: 100;
-		background: var(--bg);
-		color: var(--text-dim);
-		font-size: 12px;
-		padding: 4px 8px;
-		border: 2px solid var(--border);
-		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-		pointer-events: none;
-		text-align: center;
+		position: fixed; z-index: 100; pointer-events: none; text-align: center;
+		background: #000; padding: 2px 1ch;
+		box-shadow: inset 2px 0 0 0 #fff, inset -2px 0 0 0 #fff, inset 0 2px 0 0 #fff, inset 0 -2px 0 0 #fff;
 	}
 
-	.delta-cheaper {
-		color: var(--green);
-	}
+	/* Footer */
+	footer { text-align: center; opacity: 0.5; padding: 2lh 0; }
+	footer a { color: #fff; text-decoration: none; }
+	footer a:hover { color: var(--accent); }
+	.disclaimer { margin-top: 0.5lh; }
 
-	.delta-pricier {
-		color: var(--red);
-	}
-
-	.footer {
-		color: var(--text-dim);
-		text-align: center;
-		padding-bottom: 2lh;
-	}
-
-	.credits {
-		margin-top: 0.5lh;
-	}
-
-	.credits a {
-		color: var(--text-muted);
-		text-decoration: none;
-	}
-
-	.credits a:hover,
-	.credits-link:hover {
-		color: var(--accent);
-	}
-
-	.credits-link {
-		color: var(--text-muted);
-		text-decoration: none;
-	}
-
-	.disclaimer {
-		margin-top: 0.5lh;
-		font-size: 11px;
-		color: var(--text-dim);
-	}
-
-	.disclaimer a {
-		color: var(--text-muted);
-		text-decoration: none;
-	}
-
-	.disclaimer a:hover {
-		color: var(--accent);
-	}
-
+	/* Responsive */
 	@media (min-width: 1400px) {
-		.page {
-			max-width: 100%;
-		}
-
-		.deck-list {
-			display: grid;
-			grid-template-columns: repeat(3, 1fr);
-			padding: 0 2ch;
-		}
-
-		.archetype-card {
-			margin: 1lh 1ch;
-		}
+		.page { max-width: 100%; }
+		.deck-list { display: grid; grid-template-columns: repeat(3, 1fr); }
 	}
 
 	@media (max-width: 600px) {
-		.logo {
-			font-size: 7px;
-		}
-
-		.deck-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.deck-col:last-child {
-			padding-left: 0;
-			border-top: 1px solid var(--border);
-			padding-top: 1lh;
-		}
-
-		.deck-col:first-child {
-			padding-right: 0;
-		}
-
-		.archetype-card {
-			margin: 1lh 1ch;
-		}
-
-		.card-title {
-			flex-direction: column;
-		}
+		.logo { font-size: 7px; }
+		.deck-grid { grid-template-columns: 1fr; }
+		.deck-col:last-child { padding-left: 0; padding-top: 0.5lh; }
+		.deck-col:first-child { padding-right: 0; }
 	}
 </style>
