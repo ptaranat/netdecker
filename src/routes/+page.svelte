@@ -447,6 +447,10 @@ const ASCII_LOGO = [
 		</div>
 	{/if}
 
+	{#if !loading && !error && flatDecks.length === 0}
+		<div class="status" style="opacity: 0.5">no major Standard tournaments found recently. check back after the next event.</div>
+	{/if}
+
 	<div class="deck-list">
 	{#each flatDecks as deck, deckIndex}
 		{@const totals = deckTotals(deck)}
