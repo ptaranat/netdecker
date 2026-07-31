@@ -1,1 +1,1 @@
-bunx biome check src/
+biome check src/
