@@ -16,15 +16,15 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
 		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@types/node": "^25.5.0",
 		"husky": "^9.1.7",
-		"svelte": "^5.51.0",
+		"svelte": "^5.55.7",
 		"svelte-adapter-bun": "^1.0.1",
 		"svelte-check": "^4.4.2",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1"
+		"vite": "^7.3.7"
 	},
 	"dependencies": {
 		"cheerio": "^1.2.0"
